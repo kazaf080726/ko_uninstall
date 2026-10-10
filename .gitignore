@@ -1,0 +1,5 @@
+data/
+_shots/
+__pycache__/
+*.pyc
+.git/

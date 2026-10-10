@@ -1,0 +1,8 @@
+{
+  "version": "v1.00",
+  "versionCode": 100,
+  "lastUpdate": "2026-10-11",
+  "changelog": "首发 v1.00：史诗级重构——液态玻璃 WebUI、内核检测 MAPLE 集成、守护进程强化、本地服务模式、在线升级支持",
+  "zipUrl": "https://github.com/kazaf080726/ko_uninstall/releases/download/v1.00/KOUninstall-v1.00.zip",
+  "notes": "https://github.com/kazaf080726/ko_uninstall/releases/tag/v1.00"
+}

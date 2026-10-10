@@ -1,0 +1,43 @@
+#!/sbin/sh
+# KO卸载 · 标准 Magisk 模块模板 update-binary
+# 兼容 Magisk v20.4+ / KernelSU / APatch
+
+umask 022
+ui_print() { echo "$1"; }
+
+require_new_magisk() {
+  ui_print "*******************************"
+  ui_print " Please install Magisk v20.4+! "
+  ui_print "*******************************"
+  exit 1
+}
+
+OUTFD=$2
+ZIPFILE=$3
+
+mount /data 2>/dev/null || true
+
+if [ -f /data/adb/magisk/util_functions.sh ]; then
+  . /data/adb/magisk/util_functions.sh
+elif [ -f /data/adb/ksu/util_functions.sh ]; then
+  . /data/adb/ksu/util_functions.sh
+elif [ -f /data/adb/ap/util_functions.sh ]; then
+  . /data/adb/ap/util_functions.sh
+else
+  require_new_magisk
+fi
+
+if type install_module >/dev/null 2>&1; then
+  install_module
+else
+  MODDIR="/data/adb/modules/ko_uninstall"
+  rm -rf "$MODDIR"
+  mkdir -p "$MODDIR"
+  cd "$MODDIR" || exit 1
+  /system/bin/unzip -o -q "$ZIPFILE" -d "$MODDIR" 2>/dev/null \
+    || unzip -o -q "$ZIPFILE" -d "$MODDIR"
+  chmod 0755 post-fs-data.sh service.sh customize.sh action.sh uninstall.sh 2>/dev/null
+  chmod 0755 bin/*.sh 2>/dev/null
+  rm -rf META-INF
+fi
+exit 0
