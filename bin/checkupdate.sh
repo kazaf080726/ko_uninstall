@@ -43,8 +43,13 @@ if [ "$_fetch" = "0" ] || [ ! -s "$TMP" ]; then
     exit 0
 fi
 
-_jget() { # 简易 JSON 取值: _jget "version"
-    sed -n "s/.*\"$1\"[ ]*:[ ]*\"\([^\"}]*\)\".*/\1/p" "$TMP" 2>/dev/null | head -1
+_jget() { # 兼容字符串/裸数字: _jget "version"
+    _l=$(grep -o "\"$1\"[^,]*" "$TMP" 2>/dev/null | head -1)
+    case "$_l" in '') printf '%s' ''; return 0 ;; esac
+    _v=${_l#*:}
+    while :; do case "$_v" in ' '*) _v=${_v# } ;; *) break ;; esac; done
+    _v=${_v#\"}; _v=${_v%\"*}
+    printf '%s' "$_v"
 }
 LAT_VER=$(_jget "version")
 LAT_CODE=$(_jget "versionCode")
