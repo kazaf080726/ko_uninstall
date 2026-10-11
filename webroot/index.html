@@ -9,7 +9,7 @@
 </head>
 <body>
 
-<!-- 动态背景层 -->
+<!-- 动态背景：流动光斑 + 噪点 -->
 <div class="bg" aria-hidden="true">
   <div class="orb o1"></div>
   <div class="orb o2"></div>
@@ -19,175 +19,208 @@
 
 <div class="app">
 
-  <!-- 顶栏 -->
-  <header class="topbar glass">
-    <div class="brand">
-      <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
-        <defs>
-          <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stop-color="#22d3ee"/>
-            <stop offset="1" stop-color="#38bdf8"/>
-          </linearGradient>
-        </defs>
-        <path d="M32 4 56 18v20c0 12-10 20-24 22C18 58 8 50 8 38V18Z" fill="url(#lg)" opacity=".92"/>
-        <path d="M32 4 56 18v20c0 12-10 20-24 22C18 58 8 50 8 38V18Z" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="1.5"/>
-        <text x="32" y="41" font-family="Arial Black,Arial,sans-serif" font-size="22" font-weight="900" fill="#081018" text-anchor="middle">KO</text>
-      </svg>
-      <div class="brand-txt">
-        <div class="brand-name">KO卸载 <span class="chip" id="chipVer">v1.1.0</span></div>
-        <div class="brand-sub">Kazaf · 史诗级重构</div>
-      </div>
+  <!-- 顶部标题区 (SukiSU Miuix 风格) -->
+  <header class="topbar">
+    <div class="title-line">
+      <h1 class="app-title">KO卸载</h1>
+      <div class="live-pill" id="liveBox"><span class="led" id="led"></span><span id="liveTxt">连接中</span></div>
     </div>
-    <div class="top-right">
-      <div class="live" id="liveBox"><span class="led" id="led"></span><span id="liveTxt">OFFLINE</span></div>
-      <button class="ghost" id="langToggle">EN</button>
+    <div class="sub-line">
+      <span class="app-sub">Kazaf · 内核完整性终结者</span>
+      <span class="chip" id="chipVer">v3.2</span>
     </div>
   </header>
 
-  <!-- 主状态卡 -->
-  <section class="hero glass" id="hero">
-    <div class="hero-ring" id="ring">
-      <div class="ring-inner">
-        <div class="ring-val" id="ringVal">--</div>
-        <div class="ring-cap" id="ringCap">保护</div>
+  <!-- ===== 视图: 总览 ===== -->
+  <main class="page" id="page-overview">
+
+    <section class="hero glass">
+      <div class="hero-left">
+        <div class="hero-pill" id="st">读取中</div>
+        <div class="hero-msg" id="ms">连接 root 执行接口…</div>
+        <div class="hero-meta">
+          <span id="metaGuard">守护 --</span><i class="dot"></i>
+          <span id="metaMode">模式 --</span><i class="dot"></i>
+          <span id="metaStr">强度 --</span>
+        </div>
       </div>
-    </div>
-    <div class="hero-body">
-      <div class="hero-pill" id="st">读取中</div>
-      <div class="hero-msg" id="ms">连接 root 执行接口…</div>
-      <div class="hero-meta">
-        <span id="metaGuard">主动防护 --</span>
-        <span class="dot"></span>
-        <span id="metaMode">模式 --</span>
-        <span class="dot"></span>
-        <span id="metaStr">强度 --</span>
+      <div class="hero-ring" id="ring">
+        <div class="ring-inner">
+          <div class="ring-val" id="ringVal">--</div>
+          <div class="ring-cap">保护</div>
+        </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- 防护倒计时进度条 (v1.1.0) -->
-  <section class="protbar glass" aria-label="防护进度">
-    <div class="protbar-top">
-      <span class="protbar-k" id="protK">下次复核</span>
-      <span class="protbar-v" id="protV">--</span>
-    </div>
-    <div class="protbar-track"><div class="protbar-fill" id="protFill"></div></div>
-  </section>
-
-  <!-- 指标卡组 -->
-  <section class="grid4">
-    <div class="stat glass"><div class="stat-k">内核模块</div><div class="stat-v" id="vInte">--</div><div class="stat-s" id="sInte">等待数据</div></div>
-    <div class="stat glass"><div class="stat-k">检测节点</div><div class="stat-v" id="vNodes">--</div><div class="stat-s" id="sNodes">/proc/inte_*</div></div>
-    <div class="stat glass"><div class="stat-k">守护进程</div><div class="stat-v" id="vProc">--</div><div class="stat-s" id="sProc">daemon</div></div>
-    <div class="stat glass"><div class="stat-k">运行时长</div><div class="stat-v" id="vRun">--</div><div class="stat-s" id="sRun">本次运行</div></div>
-  </section>
-
-  <!-- 内核检测面板 (MAPLE+ / v1.1.0 十二维) -->
-  <section class="panel glass">
-    <div class="panel-h">
-      <span>内核检测 · MAPLE+</span>
-      <button class="mini" id="btnDetect">重新检测</button>
-    </div>
-    <div class="scanline" id="scanLine"><span>实时扫描</span><div class="scanbar"><i id="scanFill"></i></div></div>
-    <div class="detect" id="detect">
-      <div class="drow"><span class="dk">/proc/inte_ko</span><span class="dstat unknown" id="d_ko">检测中</span></div>
-      <div class="drow"><span class="dk">/proc/inte_systbl</span><span class="dstat unknown" id="d_systbl">检测中</span></div>
-      <div class="drow"><span class="dk">/proc/inte_status</span><span class="dstat unknown" id="d_status">检测中</span></div>
-      <div class="drow"><span class="dk">/proc/modules · inte</span><span class="dstat unknown" id="d_mod">检测中</span></div>
-      <div class="drow"><span class="dk">/sys/module/inte</span><span class="dstat unknown" id="d_sysmod">检测中</span></div>
-      <div class="drow"><span class="dk">kallsyms · inte</span><span class="dstat unknown" id="d_ksym">检测中</span></div>
-      <div class="drow"><span class="dk">/dev · inte 节点</span><span class="dstat unknown" id="d_dev">检测中</span></div>
-      <div class="drow"><span class="dk">inte.ko 文件驻留</span><span class="dstat unknown" id="d_file">检测中</span></div>
-      <div class="drow"><span class="dk">内核 cmdline 特征</span><span class="dstat unknown" id="d_cmd">检测中</span></div>
-      <div class="drow"><span class="dk">refcnt</span><span class="dstat unknown" id="d_ref">检测中</span></div>
-      <div class="drow"><span class="dk">initstate</span><span class="dstat unknown" id="d_init">检测中</span></div>
-    </div>
-  </section>
-
-  <!-- 控制面板 -->
-  <section class="panel glass">
-    <div class="panel-h"><span>控制面板</span></div>
-
-    <div class="ctrl-k">模式</div>
-    <div class="seg" id="segMode">
-      <button class="seg-btn on" data-mode="unload">卸载模式</button>
-      <button class="seg-btn" data-mode="monitor">监控模式</button>
-    </div>
-    <div class="ctrl-hint" id="modeHint">开机即卸载 inte，使其失效</div>
-
-    <div class="ctrl-k">屏蔽强度</div>
-    <div class="seg" id="segStr">
-      <button class="seg-btn on" data-strength="1">激进 · 自适应</button>
-      <button class="seg-btn" data-strength="0">标准</button>
-    </div>
-    <div class="ctrl-hint" id="strHint">激进: 复活频繁时自动收紧复核间隔, 最多 8 轮卸载</div>
-
-    <div class="ctrl-k">复核频率</div>
-    <div class="seg" id="segIv">
-      <button class="seg-btn sm" data-iv="3">3s</button>
-      <button class="seg-btn sm on" data-iv="5">5s</button>
-      <button class="seg-btn sm" data-iv="10">10s</button>
-      <button class="seg-btn sm" data-iv="30">30s</button>
-      <button class="seg-btn sm" data-iv="60">60s</button>
-    </div>
-
-    <div class="ctrl-k">操作</div>
-    <div class="actions">
-      <button class="btn primary" id="btnAct">立即清除</button>
-      <button class="btn" id="btnRef">刷新</button>
-      <button class="btn" id="btnServer">本地服务 · 关</button>
-    </div>
-    <div class="actions">
-      <button class="btn link" id="btnLink">项目主页</button>
-      <button class="btn link" id="btnRelease">发布页</button>
-    </div>
-    <div class="ctrl-hint" id="srvHint">本地服务: 在浏览器打开 http://127.0.0.1:8080 即可管理（需 busybox）</div>
-  </section>
-
-  <!-- 升级面板 -->
-  <section class="panel glass">
-    <div class="panel-h"><span>在线升级</span></div>
-    <div class="update-row">
-      <div class="update-cur">
-        <span class="up-k">当前版本</span>
-        <span class="up-v" id="upCur">v2.0.0</span>
+    <section class="protbar glass" aria-label="防护进度">
+      <div class="protbar-top">
+        <span class="protbar-k" id="protK">下次复核</span>
+        <span class="protbar-v" id="protV">--</span>
       </div>
-      <button class="btn primary sm2" id="btnUp">检查更新</button>
-    </div>
-    <div class="update-info" id="upInfo">点击「检查更新」从 update.json 获取最新版本</div>
-    <div class="update-info hide" id="upNote"></div>
-    <div class="update-info hide" id="upZipWrap"><button class="btn link sm2" id="btnUpZip">跳转下载 / Release</button></div>
-  </section>
+      <div class="protbar-track"><div class="protbar-fill" id="protFill"></div></div>
+    </section>
 
-  <!-- 设备与环境 -->
-  <section class="panel glass">
-    <div class="panel-h"><span>设备与环境</span></div>
-    <div class="kv"><span class="k">机型</span><span class="dots"></span><span class="v" id="vModel">--</span></div>
-    <div class="kv"><span class="k">品牌</span><span class="dots"></span><span class="v" id="vBrand">--</span></div>
-    <div class="kv"><span class="k">内核版本</span><span class="dots"></span><span class="v" id="vKernel">--</span></div>
-    <div class="kv"><span class="k">Root 管理器</span><span class="dots"></span><span class="v" id="vRoot">--</span></div>
-    <div class="kv"><span class="k">命中目标</span><span class="dots"></span><span class="v" id="vTargets">--</span></div>
-    <div class="kv"><span class="k">系统运行</span><span class="dots"></span><span class="v" id="vUp">--</span></div>
-    <div class="kv"><span class="k">累计卸载</span><span class="dots"></span><span class="v" id="vUnload">--</span></div>
-    <div class="kv"><span class="k">复活次数</span><span class="dots"></span><span class="v" id="vRevive">--</span></div>
-  </section>
+    <section class="grid4">
+      <div class="stat glass"><div class="stat-k">内核模块</div><div class="stat-v" id="vInte">--</div><div class="stat-s" id="sInte">等待数据</div></div>
+      <div class="stat glass"><div class="stat-k">检测节点</div><div class="stat-v" id="vNodes">--</div><div class="stat-s" id="sNodes">/proc/inte_*</div></div>
+      <div class="stat glass"><div class="stat-k">守护进程</div><div class="stat-v" id="vProc">--</div><div class="stat-s" id="sProc">daemon</div></div>
+      <div class="stat glass"><div class="stat-k">运行时长</div><div class="stat-v" id="vRun">--</div><div class="stat-s" id="sRun">本次运行</div></div>
+    </section>
 
-  <!-- 运行日志 -->
-  <section class="panel glass">
-    <div class="panel-h"><span>运行日志 · 最近 3 条</span></div>
-    <div class="log" id="log">（暂无日志）</div>
-  </section>
+    <section class="panel glass">
+      <div class="panel-h"><span>防护统计</span></div>
+      <div class="kv2">
+        <div class="kv2-item"><span class="k">累计卸载</span><b id="vUnload">--</b></div>
+        <div class="kv2-item"><span class="k">复活次数</span><b id="vRevive">--</b></div>
+        <div class="kv2-item"><span class="k">复核间隔</span><b id="vIv">--</b></div>
+        <div class="kv2-item"><span class="k">屏蔽强度</span><b id="vStr">--</b></div>
+      </div>
+    </section>
 
-  <!-- 开机自保护日志 (旧砖模式) -->
-  <section class="panel glass">
-    <div class="panel-h"><span>开机自保护 · 旧砖日志</span></div>
-    <div class="log" id="bootlog">（暂无日志）</div>
-  </section>
+    <section class="panel glass">
+      <div class="panel-h"><span>快捷操作</span></div>
+      <div class="actions">
+        <button class="btn primary" id="btnAct">立即清除</button>
+        <button class="btn" id="btnServer">本地服务 · 关</button>
+        <button class="btn" id="btnRef">刷新</button>
+      </div>
+      <div class="actions">
+        <button class="btn link" id="btnLink">项目主页</button>
+        <button class="btn link" id="btnRelease">发布页</button>
+      </div>
+    </section>
 
-  <footer class="foot">
-    <span>KO卸载 · Kazaf · 开源</span>
-    <span id="footVer">v1.1.0</span>
-  </footer>
+    <section class="panel glass">
+      <div class="panel-h"><span>运行日志 · 最近 3 条</span></div>
+      <div class="log" id="log">（暂无日志）</div>
+    </section>
+
+    <section class="panel glass">
+      <div class="panel-h"><span>开机自保护 · 旧砖日志</span></div>
+      <div class="log" id="bootlog">（暂无日志）</div>
+    </section>
+
+  </main>
+
+  <!-- ===== 视图: 检测 ===== -->
+  <main class="page" id="page-detect" hidden>
+
+    <section class="panel glass">
+      <div class="panel-h">
+        <span>内核检测 · 12 维</span>
+        <button class="mini" id="btnDetect">重新检测</button>
+      </div>
+      <div class="scanline" id="scanLine"><span>实时扫描</span><div class="scanbar"><i id="scanFill"></i></div></div>
+      <div class="detect" id="detect">
+        <div class="drow"><span class="d-ico i-proc"></span><span class="dk">/proc/inte_ko</span><span class="dstat unknown" id="d_ko">检测中</span></div>
+        <div class="drow"><span class="d-ico i-proc"></span><span class="dk">/proc/inte_systbl</span><span class="dstat unknown" id="d_systbl">检测中</span></div>
+        <div class="drow"><span class="d-ico i-proc"></span><span class="dk">/proc/inte_status</span><span class="dstat unknown" id="d_status">检测中</span></div>
+        <div class="drow"><span class="d-ico i-mod"></span><span class="dk">/proc/modules · inte</span><span class="dstat unknown" id="d_mod">检测中</span></div>
+        <div class="drow"><span class="d-ico i-sys"></span><span class="dk">/sys/module/inte</span><span class="dstat unknown" id="d_sysmod">检测中</span></div>
+        <div class="drow"><span class="d-ico i-ksym"></span><span class="dk">kallsyms · inte</span><span class="dstat unknown" id="d_ksym">检测中</span></div>
+        <div class="drow"><span class="d-ico i-dev"></span><span class="dk">/dev · inte 节点</span><span class="dstat unknown" id="d_dev">检测中</span></div>
+        <div class="drow"><span class="d-ico i-file"></span><span class="dk">inte.ko 文件驻留</span><span class="dstat unknown" id="d_file">检测中</span></div>
+        <div class="drow"><span class="d-ico i-cmd"></span><span class="dk">内核 cmdline 特征</span><span class="dstat unknown" id="d_cmd">检测中</span></div>
+        <div class="drow"><span class="d-ico i-ref"></span><span class="dk">refcnt</span><span class="dstat unknown" id="d_ref">检测中</span></div>
+        <div class="drow"><span class="d-ico i-init"></span><span class="dk">initstate</span><span class="dstat unknown" id="d_init">检测中</span></div>
+      </div>
+      <div class="detect-note">威胁维度命中即标红；inte.ko 文件驻留与 cmdline 特征为环境事实，中性展示。</div>
+    </section>
+
+  </main>
+
+  <!-- ===== 视图: 设置 ===== -->
+  <main class="page" id="page-settings" hidden>
+
+    <section class="panel glass">
+      <div class="panel-h"><span>外观主题</span></div>
+      <div class="ctrl-k">主题色</div>
+      <div class="palette" id="palette"></div>
+      <div class="ctrl-k">明暗模式</div>
+      <div class="seg" id="segTheme">
+        <button class="seg-btn on" data-theme="system">跟随系统</button>
+        <button class="seg-btn" data-theme="light">浅色</button>
+        <button class="seg-btn" data-theme="dark">深色</button>
+      </div>
+    </section>
+
+    <section class="panel glass">
+      <div class="panel-h"><span>运行策略</span></div>
+      <div class="ctrl-k">模式</div>
+      <div class="seg" id="segMode">
+        <button class="seg-btn on" data-mode="unload">卸载模式</button>
+        <button class="seg-btn" data-mode="monitor">监控模式</button>
+      </div>
+      <div class="ctrl-hint" id="modeHint">开机即卸载 inte，使其失效</div>
+      <div class="ctrl-k">屏蔽强度</div>
+      <div class="seg" id="segStr">
+        <button class="seg-btn on" data-strength="1">激进 · 自适应</button>
+        <button class="seg-btn" data-strength="0">标准</button>
+      </div>
+      <div class="ctrl-hint" id="strHint">激进: 复活频繁时自动收紧复核间隔, 最多 8 轮卸载</div>
+      <div class="ctrl-k">复核频率</div>
+      <div class="seg" id="segIv">
+        <button class="seg-btn sm" data-iv="3">3s</button>
+        <button class="seg-btn sm on" data-iv="5">5s</button>
+        <button class="seg-btn sm" data-iv="10">10s</button>
+        <button class="seg-btn sm" data-iv="30">30s</button>
+        <button class="seg-btn sm" data-iv="60">60s</button>
+      </div>
+      <div class="ctrl-hint" id="srvHint">本地服务: 在浏览器打开 http://127.0.0.1:8080 即可管理（需 busybox）</div>
+    </section>
+
+    <section class="panel glass">
+      <div class="panel-h"><span>在线升级</span></div>
+      <div class="update-row">
+        <div class="update-cur">
+          <span class="up-k">当前版本</span>
+          <span class="up-v" id="upCur">v3.2</span>
+        </div>
+        <button class="btn primary sm2" id="btnUp">检查更新</button>
+      </div>
+      <div class="update-info" id="upInfo">点击「检查更新」从 update.json 获取最新版本</div>
+      <div class="update-info hide" id="upNote"></div>
+      <div class="update-info hide" id="upZipWrap"><button class="btn link sm2" id="btnUpZip">跳转下载 / Release</button></div>
+    </section>
+
+    <section class="panel glass">
+      <div class="panel-h"><span>设备与环境</span></div>
+      <div class="kv"><span class="k">机型</span><span class="dots"></span><span class="v" id="vModel">--</span></div>
+      <div class="kv"><span class="k">品牌</span><span class="dots"></span><span class="v" id="vBrand">--</span></div>
+      <div class="kv"><span class="k">内核版本</span><span class="dots"></span><span class="v" id="vKernel">--</span></div>
+      <div class="kv"><span class="k">Root 管理器</span><span class="dots"></span><span class="v" id="vRoot">--</span></div>
+      <div class="kv"><span class="k">命中目标</span><span class="dots"></span><span class="v" id="vTargets">--</span></div>
+      <div class="kv"><span class="k">系统运行</span><span class="dots"></span><span class="v" id="vUp">--</span></div>
+    </section>
+
+    <section class="panel glass">
+      <div class="panel-h"><span>关于</span></div>
+      <div class="about">
+        <div class="about-line">KO卸载 · Kazaf · 开源</div>
+        <div class="about-line">专治 inte.ko，让 ColorOS 内核完整性检测失效</div>
+        <div class="about-line">github.com/kazaf080726/ko_uninstall</div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="foot"><span id="footVer">v3.2</span></footer>
+
+  <!-- 悬浮胶囊导航 (SukiSU Miuix 风格) -->
+  <nav class="bottombar" id="bottombar">
+    <button class="nav-item on" data-page="overview">
+      <svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1Z"/></svg>
+      <span>总览</span>
+    </button>
+    <button class="nav-item" data-page="detect">
+      <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 4a1 1 0 0 1 1 1v5.59l3.2 3.2a1 1 0 0 1-1.4 1.42l-3.6-3.6A1 1 0 0 1 11 13V7a1 1 0 0 1 1-1Z"/></svg>
+      <span>检测</span>
+    </button>
+    <button class="nav-item" data-page="settings">
+      <svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm9 4a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.4 1a7 7 0 0 0-2-1.2L16.1 3h-4l-.4 2.5a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.5a7 7 0 0 0 0 2.4l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 2 1.2l.4 2.5h4l.4-2.5a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.5c.06-.4.1-.8.1-1.2Z"/></svg>
+      <span>设置</span>
+    </button>
+  </nav>
 
   <!-- 桥接诊断 -->
   <div class="diag hide glass" id="diag">

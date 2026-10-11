@@ -1,9 +1,10 @@
 /* ==========================================================================
- * KO卸载 · WebUI 逻辑 (液态玻璃控制台 · 中英双语) v1.1.0
+ * KO卸载 · WebUI v3.2 (SukiSU Miuix 风格重构)
  * 桥接: window.ksu.exec() 只返回 stdout 最后一行 -> 单行 k=v|k=v 协议
- * 命令: webstatus.sh 轮询 / detect.sh 内核检测 / checkupdate.sh 在线升级
- *       server.sh 本地服务 / action.sh 立即清除 / open_link.sh 打开链接
- * v1.1.0: 防护倒计时进度条 / 12维检测面板 / 强度切换 / 防护统计 / 数值动效
+ * 命令: webstatus.sh 轮询 / detect.sh 检测 / checkupdate.sh 升级
+ *       server.sh 本地服务 / open_link.sh 打开链接 / action.sh 立即清除
+ * v3.2: 三 tab 视图(总览/检测/设置) + 悬浮胶囊导航 + 15色主题 + 明暗模式
+ *       修复 v3.1 布局重叠/遮挡, 检测项加入口图标, 渲染全面重排
  * ========================================================================== */
 (function () {
   'use strict';
@@ -13,13 +14,18 @@
   var STATUS_CMD = 'sh ' + MODDIR + '/bin/webstatus.sh';
   var DETECT_CMD = 'sh ' + MODDIR + '/bin/detect.sh';
   var UP_CMD = 'sh ' + MODDIR + '/bin/checkupdate.sh';
+  var SET_CMD = 'sh ' + MODDIR + '/bin/action.sh';
+  var SRV_CMD = 'sh ' + MODDIR + '/bin/server.sh';
+  var LINK_CMD = 'sh ' + MODDIR + '/bin/open_link.sh';
   var LANG_KEY = 'ko_uninstall_lang';
+  var THEME_KEY = 'ko_uninstall_seed';
+  var MODE_KEY = 'ko_uninstall_ui_mode';
   var LINK_RE = /^https?:\/\/[^\s|"'`;&<>]{1,300}$/;
 
   /* ---------- 文案 ---------- */
   var I18N = {
     zh: {
-      LIVE: '在线', OFFLINE: '离线',
+      LIVE: '在线', OFFLINE: '离线', CONN: '连接中',
       init_st: '读取中', init_ms: '连接 root 执行接口…',
       mode_unload: '卸载模式', mode_monitor: '监控模式',
       hint_unload: '开机即卸载 inte，使其失效', hint_monitor: '只观察不卸载，用于诊断。切回卸载即恢复防护',
@@ -54,103 +60,101 @@
       t_act: '立即清除', t_act_do: '正在清除…', t_act_fail: '执行失败: ',
       t_ref: '已刷新', t_link_fail: '打开失败: ', t_link_ok: '已尝试打开',
       t_detect_ok: '检测完成', e_nobridge: '无法调用 root 执行接口', e_parse: '桥接返回内容异常', e_bridge: '桥接失败',
-      vfs_title: '', vfs_part: '', vfs_trace: '', vfs_prov: '', vfs_state: '',
-      vfs_trace_clean: '', vfs_trace_hit: '', vfs_na: '', vfs_on: '', vfs_off: '',
-      vfs_btn: '', vfs_btn_off: '',
-      vfs_hint: '',
-      t_vfs_ok: '', t_vfs_off: '', t_vfs_na: '',
-      log_empty: '（暂无日志）', diag_empty: '（无）', by: 'Kazaf',
-      nodes_cap: '/proc/inte_*', daemon_cap: 'daemon', run_cap: '本次运行', inte_cap: 'inte 模块',
-      k_unload: '累计卸载', k_revive: '复活次数'
+      t_theme_ok: '主题已切换', t_theme_fail: '主题切换失败',
+      t_ui_ok: '明暗模式已切换', t_ui_fail: '明暗模式切换失败'
     },
     en: {
-      LIVE: 'LIVE', OFFLINE: 'OFFLINE',
-      init_st: 'LOADING', init_ms: 'connecting root exec…',
-      mode_unload: 'UNLOAD', mode_monitor: 'MONITOR',
-      hint_unload: 'remove inte at boot ｜ monitor: observe only', hint_monitor: 'observe only, for diagnostics. Switch back to restore',
-      str_aggr: 'AGGRESSIVE', str_std: 'STANDARD',
-      hint_aggr: 'aggressive: tightens recheck interval on revives, up to 8 unload rounds', hint_std: 'standard: fixed interval, up to 5 rounds',
-      guard_off: 'guard idle', guard_found: 'guard watching·found', guard_watch: 'guard watching·',
-      s_normal_ok: 'ACTIVE', s_normal_ok_ms: 'inte not loaded, integrity check disabled',
-      s_normal_warn: 'PENDING', s_normal_warn_ms: 'inte still loaded, daemon handling',
-      s_running: 'WORKING', s_running_ms: 'removing inte now',
-      s_failed: 'FAILED', s_failed_ms: 'inte could not be removed (kernel protected?)',
+      LIVE: 'ONLINE', OFFLINE: 'OFFLINE', CONN: 'CONNECTING',
+      init_st: 'Loading', init_ms: 'Connecting root exec bridge…',
+      mode_unload: 'Unload', mode_monitor: 'Monitor',
+      hint_unload: 'Unload inte on boot', hint_monitor: 'Watch only. Switch back to unload to resume',
+      str_aggr: 'Aggressive · adaptive', str_std: 'Standard',
+      hint_aggr: 'Aggressive: tighten interval on revival, up to 8 rounds', hint_std: 'Standard: fixed interval, up to 5 rounds',
+      guard_off: 'Guard offline', guard_found: 'Guard · found', guard_watch: 'Guard · ',
+      s_normal_ok: 'ACTIVE', s_normal_ok_ms: 'inte not loaded, kernel integrity check disabled',
+      s_normal_warn: 'CHECKING', s_normal_warn_ms: 'inte still loaded, daemon working',
+      s_running: 'WORKING', s_running_ms: 'unloading inte',
+      s_failed: 'FAILED', s_failed_ms: 'inte protected, rmmod failed',
       s_builtin: 'BUILTIN', s_builtin_ms: 'inte built into kernel, rmmod ineffective',
-      s_notfound: 'N/A', s_notfound_ms: 'no inte subsystem on this device',
-      s_stopped: 'STOPPED', s_stopped_ms: 'daemon exited (may return after reboot)',
-      s_daemonstop: 'DAEMON DOWN', s_daemonstop_ms: 'inte cleared, but daemon not running',
+      s_notfound: 'CLEAR', s_notfound_ms: 'inte subsystem not found on this device',
+      s_stopped: 'STOPPED', s_stopped_ms: 'daemon exited (may recover on reboot)',
+      s_daemonstop: 'DAEMON OFF', s_daemonstop_ms: 'inte cleared but daemon not running',
       s_starting: 'STARTING', s_starting_ms: 'daemon initializing, inte currently loaded',
-      v_unloaded: 'UNLOADED', v_loaded: 'LOADED',
-      v_daemon_up: 'UP', v_daemon_down: 'DOWN',
-      detect_run: '…', detect_hit: 'EXISTS', detect_clean: 'N/A',
-      detect_resident: 'RESIDENT (OK)', detect_none: 'ABSENT', detect_feat: 'STATIC FEATURE', detect_feat_none: 'NO FEATURE',
-      scan_idle: 'LIVE SCAN', scan_go: 'SCANNING',
+      v_unloaded: 'unloaded', v_loaded: 'loaded',
+      v_daemon_up: 'running', v_daemon_down: 'stopped',
+      detect_run: 'checking', detect_hit: 'found', detect_clean: 'clean',
+      detect_resident: 'resident (normal)', detect_none: 'not resident', detect_feat: 'feature (static)', detect_feat_none: 'no feature',
+      scan_idle: 'live scan', scan_go: 'scanning',
       prot_next: 'next check', prot_off: 'guard off', prot_work: 'working',
-      d_title: 're-detect', up_check: 'CHECK', up_checking: 'CHECKING…',
-      up_cur: 'current', up_hint: 'check update.json for latest version',
-      up_new: 'new version', up_ok: 'up to date', up_none: 'cannot fetch update info',
-      up_zip: 'DOWNLOAD / RELEASE', up_open: 'trying to open release page',
-      srv_on: 'Server · ON', srv_off: 'Server · OFF', srv_starting: 'Starting…', srv_stopping: 'Stopping…',
-      srv_hint_on: 'server running: open http://127.0.0.1:8080 in browser',
-      srv_hint_off: 'local server: enables management from any browser at http://127.0.0.1:8080 (needs busybox)',
-      t_mode_ok: 'mode -> ', t_mode_fail: 'switch failed: ',
-      t_iv_ok: 'interval -> ', t_iv_ok2: 's', t_iv_fail: 'set failed: ',
-      t_str_ok: 'strength -> ', t_str_fail: 'switch failed: ',
-      t_act: 'EXECUTE', t_act_do: 'REMOVING…', t_act_fail: 'exec failed: ',
-      t_ref: 'refreshed', t_link_fail: 'open failed: ', t_link_ok: 'trying to open',
-      t_detect_ok: 'detected', e_nobridge: 'cannot reach root exec bridge', e_parse: 'bridge returned bad data', e_bridge: 'bridge error',
-      vfs_title: '', vfs_part: '', vfs_trace: '', vfs_prov: '', vfs_state: '',
-      vfs_trace_clean: '', vfs_trace_hit: '', vfs_na: '', vfs_on: '', vfs_off: '',
-      vfs_btn: '', vfs_btn_off: '',
-      vfs_hint: '',
-      t_vfs_ok: '', t_vfs_off: '', t_vfs_na: '',
-      log_empty: '(no log)', diag_empty: '(none)', by: 'Kazaf',
-      nodes_cap: '/proc/inte_*', daemon_cap: 'daemon', run_cap: 'runtime', inte_cap: 'inte module',
-      k_unload: 'unloads', k_revive: 'revives'
+      d_title: 'Re-detect', up_check: 'Check', up_checking: 'Checking…',
+      up_cur: 'Current', up_hint: 'Tap to fetch latest from update.json',
+      up_new: 'New version', up_ok: 'Up to date', up_none: 'Cannot fetch update info',
+      up_zip: 'Open download / Release', up_open: 'Update page opened',
+      srv_on: 'Local · ON', srv_off: 'Local · OFF', srv_starting: 'Starting…', srv_stopping: 'Stopping…',
+      srv_hint_on: 'Local server: open http://127.0.0.1:8080 in browser',
+      srv_hint_off: 'Local server: enable then open http://127.0.0.1:8080 (busybox required)',
+      t_mode_ok: 'Mode: ', t_mode_fail: 'Mode failed: ',
+      t_iv_ok: 'Interval set to ', t_iv_ok2: 's', t_iv_fail: 'Set failed: ',
+      t_str_ok: 'Strength: ', t_str_fail: 'Switch failed: ',
+      t_act: 'Purge now', t_act_do: 'Purging…', t_act_fail: 'Exec failed: ',
+      t_ref: 'Refreshed', t_link_fail: 'Open failed: ', t_link_ok: 'Opened',
+      t_detect_ok: 'Detected', e_nobridge: 'cannot reach root exec bridge', e_parse: 'bridge returned bad data', e_bridge: 'bridge error',
+      t_theme_ok: 'Theme applied', t_theme_fail: 'Theme failed',
+      t_ui_ok: 'UI mode set', t_ui_fail: 'UI mode failed'
     }
   };
 
-  var lang = 'zh';
-  try { lang = localStorage.getItem(LANG_KEY) || 'zh'; } catch (e) {}
-  if (lang !== 'en') lang = 'zh';
-  function t(k) { return (I18N[lang] && I18N[lang][k] != null) ? I18N[lang][k] : k; }
+  var lang = (function () {
+    try { return localStorage.getItem(LANG_KEY) === 'en' ? 'en' : 'zh'; } catch (e) { return 'zh'; }
+  })();
+  function t(k) { return (I18N[lang] && I18N[lang][k]) || I18N.zh[k] || k; }
 
   function $(id) { return document.getElementById(id); }
   var el = {
-    hero: $('hero'), st: $('st'), ms: $('ms'), liveBox: $('liveBox'), led: $('led'), liveTxt: $('liveTxt'),
-    chipVer: $('chipVer'), footVer: $('footVer'), ring: $('ring'), ringVal: $('ringVal'), ringCap: $('ringCap'),
-    metaGuard: $('metaGuard'), metaMode: $('metaMode'), metaStr: $('metaStr'),
-    protbar: $('protbar') || { classList: { add: function(){}, remove: function(){} } },
+    liveBox: $('liveBox'), led: $('led'), liveTxt: $('liveTxt'), chipVer: $('chipVer'),
+    st: $('st'), ms: $('ms'), ringVal: $('ringVal'), metaGuard: $('metaGuard'),
+    metaMode: $('metaMode'), metaStr: $('metaStr'),
     protK: $('protK'), protV: $('protV'), protFill: $('protFill'),
     vInte: $('vInte'), sInte: $('sInte'), vNodes: $('vNodes'), sNodes: $('sNodes'),
     vProc: $('vProc'), sProc: $('sProc'), vRun: $('vRun'), sRun: $('sRun'),
-    vModel: $('vModel'), vBrand: $('vBrand'), vKernel: $('vKernel'), vRoot: $('vRoot'),
-    vTargets: $('vTargets'), vUp: $('vUp'), vUnload: $('vUnload'), vRevive: $('vRevive'),
-    segMode: $('segMode'), segIv: $('segIv'), segStr: $('segStr'), modeHint: $('modeHint'), strHint: $('strHint'),
-    btnAct: $('btnAct'), btnRef: $('btnRef'), btnServer: $('btnServer'), srvHint: $('srvHint'),
+    vUnload: $('vUnload'), vRevive: $('vRevive'), vIv: $('vIv'), vStr: $('vStr'),
+    btnAct: $('btnAct'), btnRef: $('btnRef'), btnServer: $('btnServer'),
     btnLink: $('btnLink'), btnRelease: $('btnRelease'),
     btnDetect: $('btnDetect'), detect: $('detect'), scanLine: $('scanLine'), scanFill: $('scanFill'),
-    d_ko: $('d_ko'), d_systbl: $('d_systbl'), d_status: $('d_status'), d_mod: $('d_mod'), d_sysmod: $('d_sysmod'), d_ksym: $('d_ksym'),
-    d_dev: $('d_dev'), d_file: $('d_file'), d_cmd: $('d_cmd'), d_ref: $('d_ref'), d_init: $('d_init'),
-    btnUp: $('btnUp'), upCur: $('upCur'), upInfo: $('upInfo'), upNote: $('upNote'), upZipWrap: $('upZipWrap'), btnUpZip: $('btnUpZip'),
-    log: $('log'), bootlog: $('bootlog'), langToggle: $('langToggle'),
-    diag: $('diag'), diagBody: $('diagBody'), toast: $('toast')
+    d_ko: $('d_ko'), d_systbl: $('d_systbl'), d_status: $('d_status'), d_mod: $('d_mod'),
+    d_sysmod: $('d_sysmod'), d_ksym: $('d_ksym'), d_dev: $('d_dev'), d_file: $('d_file'),
+    d_cmd: $('d_cmd'), d_ref: $('d_ref'), d_init: $('d_init'),
+    segMode: $('segMode'), modeHint: $('modeHint'), segStr: $('segStr'), strHint: $('strHint'),
+    segIv: $('segIv'), srvHint: $('srvHint'),
+    palette: $('palette'), segTheme: $('segTheme'),
+    btnUp: $('btnUp'), upCur: $('upCur'), upInfo: $('upInfo'), upNote: $('upNote'),
+    upZipWrap: $('upZipWrap'), btnUpZip: $('btnUpZip'),
+    log: $('log'), bootlog: $('bootlog'),
+    vModel: $('vModel'), vBrand: $('vBrand'), vKernel: $('vKernel'), vRoot: $('vRoot'),
+    vTargets: $('vTargets'), vUp: $('vUp'),
+    diag: $('diag'), diagBody: $('diagBody'), footVer: $('footVer')
   };
 
   var bridge = null, bridgeHow = '', busy = false, lastData = null, srvState = 0;
-  var lastIv = 5, lastRefresh = Date.now(), lastDetect = {};
+  var lastIv = 5, lastDetect = {};
   var protAnim = null;
 
   /* ---------- Toast ---------- */
   var toastTimer = null;
   function toast(m, kind) {
-    if (!el.toast) return;
-    el.toast.textContent = m;
-    el.toast.classList.remove('ok', 'err');
-    if (kind) el.toast.classList.add(kind);
-    el.toast.classList.add('show');
+    var old = document.querySelector('.toast');
+    if (old) old.remove();
+    var t0 = document.createElement('div');
+    t0.className = 'toast';
+    if (kind) t0.classList.add(kind);
+    t0.textContent = m;
+    document.body.appendChild(t0);
+    requestAnimationFrame(function () { t0.classList.add('show'); });
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { el.toast.classList.remove('show'); }, 2200);
+    toastTimer = setTimeout(function () {
+      t0.classList.remove('show');
+      setTimeout(function () { t0.remove(); }, 350);
+    }, 2000);
   }
 
   /* ---------- 桥接探测 ---------- */
@@ -185,11 +189,7 @@
         }
       } catch (e) {}
     }
-    return import('kernelsu').then(function (m) {
-      if (useBridge(m, "import('kernelsu')")) { tried.push('OK import'); return tried; }
-      if (m && m.default && useBridge(m.default, "import().default")) { tried.push('OK import.default'); return tried; }
-      return tried;
-    }).catch(function (e) { tried.push('import failed: ' + (e && e.message ? e.message : e)); return tried; });
+    return Promise.reject(new Error('no bridge found: ' + tried.join(', ')));
   }
 
   function sh(cmd) {
@@ -253,416 +253,435 @@
               : { ok: 'ok',   head: t('s_normal_ok'), msg: t('s_normal_ok_ms') };
   }
 
+  /* ---------- 主题系统 ---------- */
+  var PALETTE = ['#22d3ee', '#38bdf8', '#818cf8', '#c084fc', '#f472b6',
+                 '#fb7185', '#f87171', '#fb923c', '#fbbf24', '#facc15',
+                 '#a3e635', '#34d399', '#2dd4bf', '#f9a8d4', '#fda4af'];
+  function applySeed(seed) {
+    try { localStorage.setItem(THEME_KEY, seed); } catch (e) {}
+    document.documentElement.style.setProperty('--seed', seed);
+    document.documentElement.style.setProperty('--primary', seed);
+    document.documentElement.style.setProperty('--primary-deep', shade(seed, -24));
+    document.documentElement.style.setProperty('--primary-soft', alpha(seed, .16));
+    document.documentElement.style.setProperty('--primary-glow', alpha(seed, .45));
+    var sw = el.palette.querySelectorAll('.swatch');
+    sw.forEach(function (s) {
+      s.classList.toggle('on', s.getAttribute('data-seed') === seed);
+    });
+  }
+  function shade(hex, amt) {
+    var n = parseInt(hex.slice(1), 16), r = Math.max(0, Math.min(255, (n >> 16) + amt)),
+        g = Math.max(0, Math.min(255, ((n >> 8) & 255) + amt)),
+        b = Math.max(0, Math.min(255, (n & 255) + amt));
+    return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+  }
+  function alpha(hex, a) {
+    var n = parseInt(hex.slice(1), 16);
+    return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+  }
+  function applyUiMode(mode) {
+    try { localStorage.setItem(MODE_KEY, mode); } catch (e) {}
+    var root = document.documentElement;
+    if (mode === 'system') {
+      var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      root.removeAttribute('data-theme');
+      if (!dark) root.setAttribute('data-theme', 'light');
+    } else {
+      root.setAttribute('data-theme', mode === 'light' ? 'light' : 'dark');
+      if (mode === 'dark') root.removeAttribute('data-theme');
+    }
+    var btns = el.segTheme.querySelectorAll('.seg-btn');
+    btns.forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-theme') === mode); });
+  }
+  function buildPalette() {
+    if (!el.palette) return;
+    var cur = null;
+    try { cur = localStorage.getItem(THEME_KEY); } catch (e) {}
+    PALETTE.forEach(function (seed) {
+      var s = document.createElement('button');
+      s.className = 'swatch' + (seed === cur ? ' on' : '');
+      s.setAttribute('data-seed', seed);
+      s.style.background = 'linear-gradient(135deg, ' + seed + ', ' + shade(seed, -20) + ')';
+      s.title = seed;
+      s.addEventListener('click', function () {
+        applySeed(seed);
+        toast(t('t_theme_ok'), 'ok');
+        try { window.ksu && window.ksu.toast && window.ksu.toast(t('t_theme_ok')); } catch (e) {}
+      });
+      el.palette.appendChild(s);
+    });
+    applySeed(cur || PALETTE[0]);
+  }
+
   /* ---------- 渲染 ---------- */
-  var RING_COLOR = { ok: ['#34d399', '#22d3ee', 'rgba(52,211,153,0.4)'],
-                     warn: ['#fbbf24', '#f97316', 'rgba(251,191,36,0.4)'],
-                     err: ['#f87171', '#ef4444', 'rgba(248,113,113,0.4)'],
-                     info: ['#38bdf8', '#22d3ee', 'rgba(56,189,248,0.4)'] };
-  var RING_VAL = { ok: '安全', warn: '处理', err: '失效', info: '无需' };
-
-  function guardText(d) {
-    if (d.run !== '1') return t('guard_off');
-    if (d.inte_loaded === '1') return t('guard_found');
-    return t('guard_watch') + (d.interval || '5') + 's';
-  }
-
-  function bumpNode(node) {
-    if (!node) return;
-    node.classList.remove('bump');
-    void node.offsetWidth;
-    node.classList.add('bump');
-  }
+  var RING_COLOR = { ok: ['#34d399', '#22d3ee', 'rgba(52,211,153,.4)'],
+                     warn: ['#fbbf24', '#f97316', 'rgba(251,191,36,.4)'],
+                     err: ['#f87171', '#ef4444', 'rgba(248,113,113,.4)'],
+                     info: ['#60a5fa', '#3b82f6', 'rgba(96,165,250,.4)'],
+                     neutral: ['#94a3b8', '#64748b', 'rgba(148,163,184,.3)'] };
 
   function render(d) {
+    if (!d) return;
     lastData = d;
-    if (d.version) { el.chipVer.textContent = d.version; el.footVer.textContent = d.version; }
+    var st = statusText(d);
 
-    var s = statusText(d);
-    el.hero.classList.remove('ok', 'warn', 'err', 'info');
-    el.hero.classList.add(s.ok);
-    el.st.textContent = s.head;
-    el.st.style.animation = 'none';
-    void el.st.offsetWidth;
-    el.st.style.animation = '';
-    el.ms.textContent = s.msg;
-    el.metaMode.textContent = (d.mode === 'monitor') ? t('mode_monitor') : t('mode_unload');
-    el.metaGuard.textContent = guardText(d);
-    el.metaStr.textContent = (d.strength === '1') ? t('str_aggr') : t('str_std');
+    /* 顶栏 */
+    var run = d.run === '1';
+    el.led.className = 'led' + (run ? ' on' : (d.state === 'stopped' || d.state === 'notfound' ? ' off' : ' warn'));
+    el.liveTxt.textContent = run ? t('LIVE') : t('OFFLINE');
+    el.liveBox.classList.toggle('off', !run);
 
-    // 状态环
-    var rc = RING_COLOR[s.ok] || RING_COLOR.info;
-    el.ring.style.setProperty('--ring-a', rc[0]);
-    el.ring.style.setProperty('--ring-b', rc[1]);
-    el.ring.style.setProperty('--ring-glow', rc[2]);
-    el.ringVal.textContent = RING_VAL[s.ok] || '--';
-    el.ringCap.textContent = t('nodes_cap');
+    /* hero */
+    el.st.textContent = st.head;
+    el.st.className = 'hero-pill ' + st.ok;
+    el.ms.textContent = st.msg;
+    var rc = RING_COLOR[st.ok] || RING_COLOR.neutral;
+    el.ringVal.textContent = st.ok === 'ok' ? 'ON' : (st.ok === 'err' ? '!!' : '…');
+    el.ringVal.style.color = rc[0];
 
-    // 指标
-    setStat(el.vInte, (d.inte_loaded === '1') ? t('v_loaded') : t('v_unloaded'),
-            d.inte_loaded === '1' ? 'err' : 'ok', d.targets || '-');
-    setStat(el.vNodes, (d.nodes || '0') + '/3', d.nodes === '0' ? 'ok' : 'warn', t('nodes_cap'));
-    setStat(el.vProc, (d.run === '1') ? (t('v_daemon_up') + ' pid=' + d.pid) : t('v_daemon_down'),
-            d.run === '1' ? 'ok' : 'warn', t('daemon_cap'));
-    setStat(el.vRun, fmtDur(d.runtime), '', t('run_cap'));
+    /* meta */
+    var guard = '--', mode = '--', str = '--';
+    if (d.guard === '1' || d.guard === '2') guard = t('guard_watch') + (d.next || '--') + 's';
+    else if (d.run === '1') guard = t('guard_found');
+    else guard = t('guard_off');
+    if (d.mode === 'monitor') mode = t('mode_monitor'); else if (d.mode) mode = t('mode_unload');
+    if (d.strength === '1') str = t('str_aggr'); else if (d.strength === '0') str = t('str_std');
+    el.metaGuard.textContent = guard;
+    el.metaMode.textContent = mode;
+    el.metaStr.textContent = str;
 
-    // 防护统计
-    var st = parseStats(d.stats);
-    el.vUnload.textContent = st.unload;
-    el.vRevive.textContent = st.revive;
-
-    el.vModel.textContent = d.model || '--';
-    el.vBrand.textContent = d.brand || '--';
-    el.vKernel.textContent = d.kernel || '--';
-    el.vRoot.textContent = d.root || '--';
-    el.vTargets.textContent = d.targets || '-';
-    el.vUp.textContent = fmtDur(d.uptime);
-
-    // 防护进度条
-    lastIv = parseInt(d.interval, 10) || 5;
-    if (lastIv < 1) lastIv = 1;
-    lastRefresh = Date.now();
-    applyProtState(s.ok, d);
-
-    // 本地服务状态
-    srvState = (d.server === '1') ? 1 : 0;
-    el.btnServer.textContent = srvState ? t('srv_on') : t('srv_off');
-    el.srvHint.textContent = srvState ? t('srv_hint_on') : t('srv_hint_off');
-
-    // 日志
-    if (d.log3) {
-      el.log.textContent = d.log3.replace(/\|/g, '\n');
-    } else if (d.log) {
-      el.log.textContent = d.log;
+    /* 进度条 */
+    var next = parseInt(d.next, 10), iv = parseInt(d.interval, 10);
+    if (d.guard === '1' || d.guard === '2') {
+      el.protK.textContent = t('prot_next');
+      if (!isNaN(next) && !isNaN(iv) && iv > 0) {
+        el.protV.textContent = next + 's';
+        el.protFill.style.width = Math.max(2, Math.min(100, (100 * next / iv))) + '%';
+      } else { el.protV.textContent = '--'; el.protFill.style.width = '4%'; }
+    } else if (d.run === '1' && d.inte_loaded === '1') {
+      el.protK.textContent = t('prot_work'); el.protV.textContent = '…';
+      el.protFill.style.width = '70%';
     } else {
-      el.log.textContent = t('log_empty');
-    }
-    // 开机自保护日志 (旧砖模式)
-    if (el.bootlog) {
-      var bl = d.bootlog ? d.bootlog.replace(/\|/g, '\n') : t('log_empty');
-      el.bootlog.textContent = bl;
-      if (d.bootlog && d.bootlog.indexOf('DISABLE') >= 0) {
-        el.bootlog.className = 'log err';
-      } else if (d.bootlog && d.bootlog.indexOf('CLEAR') >= 0) {
-        el.bootlog.className = 'log ok';
-      }
+      el.protK.textContent = t('prot_off'); el.protV.textContent = '--'; el.protFill.style.width = '0';
     }
 
-    // 模式 / 间隔 / 强度高亮
-    var mb = el.segMode.querySelectorAll('button');
-    for (var i = 0; i < mb.length; i++) mb[i].classList.toggle('on', mb[i].getAttribute('data-mode') === (d.mode || 'unload'));
-    el.modeHint.textContent = (d.mode === 'monitor') ? t('hint_monitor') : t('hint_unload');
-    var ib = el.segIv.querySelectorAll('button');
-    for (var j = 0; j < ib.length; j++) ib[j].classList.toggle('on', ib[j].getAttribute('data-iv') === (d.interval || '5'));
-    var sb = el.segStr.querySelectorAll('button');
-    for (var k = 0; k < sb.length; k++) sb[k].classList.toggle('on', sb[k].getAttribute('data-strength') === (d.strength || '1'));
-    el.strHint.textContent = (d.strength === '1') ? t('hint_aggr') : t('hint_std');
+    /* 指标卡 */
+    setStat(el.vInte, el.sInte, d.inte_loaded === '1' ? t('v_loaded') : t('v_unloaded'),
+            d.inte_loaded === '1' ? 'err' : 'ok', 'inte.ko');
+    var nodes = parseInt(d.nodes, 10);
+    setStat(el.vNodes, el.sNodes, isNaN(nodes) ? '--' : (nodes > 0 ? String(nodes) : '0/3'),
+            nodes > 0 ? 'warn' : 'ok', '/proc/inte_*');
+    setStat(el.vProc, el.sProc, d.run === '1' ? t('v_daemon_up') : t('v_daemon_down'),
+            d.run === '1' ? 'ok' : 'warn', 'pid=' + (d.pid || '--'));
+    var up = parseInt(d.uptime, 10);
+    setStat(el.vRun, el.sRun, fmtDur(up), 'neutral', '本次运行');
 
-    // 检测面板 (12 维)
-    var m = { ko: d.m_ko, systbl: d.m_systbl, status: d.m_status, mod: d.m_mod, sysmod: d.m_sysmod, ksym: d.ksym,
-              dev: d.m_dev, file: d.m_file, cmd: d.m_cmd, ref: d.m_ref, init: d.m_init };
-    if (d.m_ko !== undefined && d.m_ko !== '') applyDetect(m, true);
+    /* 统计 */
+    el.vUnload.textContent = d.unload || '0';
+    el.vRevive.textContent = d.revive || '0';
+    el.vIv.textContent = (d.interval || '--') + 's';
+    el.vStr.textContent = d.strength === '1' ? t('str_aggr') : t('str_std');
+
+    /* 日志 */
+    if (d.logs) renderLog(el.log, d.logs, 3);
+    if (d.bootlogs) renderLog(el.bootlog, d.bootlogs, 6);
+    if (d.bootlogs === '') el.bootlog.innerHTML = '<div class="empty">（暂无日志）</div>';
+
+    /* 环境 */
+    if (d.model) el.vModel.textContent = d.model;
+    if (d.brand) el.vBrand.textContent = d.brand;
+    if (d.kernel) el.vKernel.textContent = d.kernel;
+    if (d.root) el.vRoot.textContent = d.root;
+    if (d.targets) el.vTargets.textContent = d.targets;
+    if (d.uptime) el.vUp.textContent = fmtDur(up);
+
+    /* 控件态 */
+    syncSeg(el.segMode, 'mode', d.mode === 'monitor' ? 'monitor' : 'unload');
+    syncSeg(el.segStr, 'strength', d.strength === '1' ? '1' : '0');
+    syncSeg(el.segIv, 'iv', String(d.interval || 5));
+    el.modeHint.textContent = d.mode === 'monitor' ? t('hint_monitor') : t('hint_unload');
+    el.strHint.textContent = d.strength === '1' ? t('hint_aggr') : t('hint_std');
   }
-
-  function parseStats(s) {
-    var r = { unload: '0', revive: '0' };
-    if (!s) return r;
-    String(s).split(',').forEach(function (seg) {
-      var p = seg.indexOf('=');
-      if (p > 0) { var k = seg.slice(0, p).trim(), v = seg.slice(p + 1).trim();
-        if (k === 'unload' || k === 'revive') r[k] = v; }
-    });
-    return r;
+  function setStat(vEl, sEl, val, kind, sub) {
+    vEl.textContent = val;
+    vEl.className = 'stat-v ' + kind;
+    sEl.textContent = sub || '';
   }
-
-  function setStat(elv, txt, cls, sub) {
-    if (elv.textContent !== txt) bumpNode(elv);
-    elv.textContent = txt;
-    elv.className = 'stat-v' + (cls ? ' ' + cls : '');
-    var sib = elv.nextElementSibling;
-    if (sib) sib.textContent = sub || '';
+  function syncSeg(seg, attr, val) {
+    if (!seg) return;
+    var btns = seg.querySelectorAll('.seg-btn');
+    btns.forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-' + attr) === val); });
   }
-
-  /* ---------- 防护倒计时进度条 ---------- */
-  function applyProtState(ok, d) {
-    el.protbar.classList.remove('ok', 'warn', 'err');
-    el.protbar.classList.add(ok);
-    var fill = el.protFill, k = el.protK, v = el.protV;
-    if (d.run !== '1') { k.textContent = t('prot_off'); v.textContent = '--'; fill.style.width = '0%'; return; }
-    if (d.inte_loaded === '1') { k.textContent = t('prot_work'); v.textContent = '…'; fill.style.width = '100%'; return; }
-    k.textContent = t('prot_next') + ' · ' + lastIv + 's';
-    var ba = RING_COLOR[ok][0] || '#34d399', bb = RING_COLOR[ok][1] || '#22d3ee';
-    fill.style.setProperty('--bar-a', ba);
-    fill.style.setProperty('--bar-b', bb);
-    fill.style.setProperty('--bar-glow', RING_COLOR[ok][2] || 'rgba(52,211,153,0.4)');
-    startProtTimer();
-  }
-
-  function startProtTimer() {
-    if (protAnim) return;
-    var raf = window.requestAnimationFrame || function (cb) { return setTimeout(function () { cb(); }, 250); };
-    protAnim = raf(function tick() {
-      protAnim = null;
-      var elp = (Date.now() - lastRefresh) / 1000;
-      var left = lastIv - elp;
-      if (left < 0) left = 0;
-      var pct = Math.max(0, Math.min(100, (left / lastIv) * 100));
-      el.protFill.style.width = pct.toFixed(1) + '%';
-      el.protV.textContent = (left <= 0 ? 0 : Math.ceil(left)) + 's';
-      if (lastData) protAnim = raf(tick);
+  function renderLog(container, logs, max) {
+    if (!container || !logs) return;
+    if (typeof logs === 'string') logs = logs.split('\n').filter(function (s) { return s.trim(); });
+    var arr = logs.slice(-max);
+    if (!arr.length) { container.innerHTML = '<div class="empty">（暂无日志）</div>'; return; }
+    container.innerHTML = '';
+    arr.forEach(function (line) {
+      var d = document.createElement('div');
+      var kind = '';
+      if (/\[check\]|\[unload\]|\[alive\]/.test(line)) kind = 'ok';
+      else if (/warn|失败|异常/.test(line)) kind = 'warn';
+      else if (/error|fatal|err/.test(line)) kind = 'err';
+      if (kind) d.className = kind;
+      d.textContent = line;
+      container.appendChild(d);
     });
   }
 
-  /* ---------- 检测面板渲染 (12 维) ---------- */
-  // 威胁维度 (加载即威胁): ko/systbl/status/mod/sysmod/ksym/dev/ref/init
-  // 环境事实维度 (静态存在, 卸载不影响, 中性展示): file/cmd
-  function applyDetect(m, flash) {
-    setD(el.d_ko, m.ko, null, flash);
-    setD(el.d_systbl, m.systbl, null, flash);
-    setD(el.d_status, m.status, null, flash);
-    setD(el.d_mod, m.mod, null, flash);
-    setD(el.d_sysmod, m.sysmod, null, flash);
-    setD(el.d_ksym, m.ksym, null, flash);
-    var devv = (m.dev === undefined || m.dev === '') ? undefined : (m.dev === '0' ? '0' : '1');
-    setD(el.d_dev, devv, (devv === '1' ? ('×' + m.dev) : null), flash);
-    setD(el.d_file, m.file, null, flash, 'file');
-    setD(el.d_cmd, m.cmd, null, flash, 'cmd');
-    setD(el.d_ref, (m.ref && m.ref !== '') ? '1' : '0', (m.ref || ''), flash);
-    setD(el.d_init, (m.init && m.init !== '') ? '1' : '0', (m.init || ''), flash);
+  /* ---------- 检测渲染 ---------- */
+  function dstat(id, cls, txt) { var e = $(id); if (e) { e.className = 'dstat ' + cls; e.textContent = txt; } }
+  function renderDetect(d) {
+    var hit = function (v) { return v === '1'; };
+    dstat('d_ko', hit(d.ko) ? 'err' : 'ok', hit(d.ko) ? t('detect_hit') : t('detect_clean'));
+    dstat('d_systbl', hit(d.systbl) ? 'err' : 'ok', hit(d.systbl) ? t('detect_hit') : t('detect_clean'));
+    dstat('d_status', hit(d.status) ? 'err' : 'ok', hit(d.status) ? t('detect_hit') : t('detect_clean'));
+    dstat('d_mod', hit(d.mod) ? 'err' : 'ok', hit(d.mod) ? t('detect_hit') : t('detect_clean'));
+    dstat('d_sysmod', hit(d.sysmod) ? 'err' : 'ok', hit(d.sysmod) ? t('detect_hit') : t('detect_clean'));
+    dstat('d_ksym', hit(d.ksym) ? 'err' : 'ok', hit(d.ksym) ? t('detect_hit') : t('detect_clean'));
+    dstat('d_dev', hit(d.dev) ? 'err' : 'ok', hit(d.dev) ? t('detect_hit') : t('detect_clean'));
+    dstat('d_file', d.file === '1' ? 'info' : 'ok', d.file === '1' ? t('detect_resident') : t('detect_none'));
+    dstat('d_cmd', d.cmd === '1' ? 'info' : 'ok', d.cmd === '1' ? t('detect_feat') : t('detect_feat_none'));
+    dstat('d_ref', hit(d.ref) ? 'err' : 'ok', hit(d.ref) ? t('detect_hit') : t('detect_clean'));
+    dstat('d_init', hit(d.init) ? 'err' : 'ok', hit(d.init) ? t('detect_hit') : t('detect_clean'));
+    if (el.scanLine) el.scanLine.classList.remove('go');
+    if (el.scanFill) el.scanFill.style.width = '0';
+    if (el.btnDetect) el.btnDetect.textContent = t('d_title');
+    toast(t('t_detect_ok'), 'ok');
   }
-  function setD(node, v, extra, flash, kind) {
-    if (!node) return;
-    var txt = '', cls = 'dstat clean';
-    if (v === '1') {
-      if (kind === 'file') { txt = t('detect_resident'); cls = 'dstat clean'; }
-      else if (kind === 'cmd') { txt = t('detect_feat'); cls = 'dstat clean'; }
-      else { txt = t('detect_hit'); cls = 'dstat hit'; if (extra) txt = t('detect_hit') + ' · ' + extra; }
-    } else if (v === '0') {
-      if (kind === 'file') txt = t('detect_none');
-      else if (kind === 'cmd') txt = t('detect_feat_none');
-      else txt = t('detect_clean');
-      cls = 'dstat clean';
-    } else { txt = t('detect_run'); cls = 'dstat unknown'; }
-    if (node.textContent !== txt) {
-      node.textContent = txt;
-      node.className = cls;
-      if (flash) {
-        node.classList.remove('flash');
-        void node.offsetWidth;
-        node.classList.add('flash');
-      }
-    }
+  function detectStart() {
+    if (el.scanLine) el.scanLine.classList.add('go');
+    if (el.btnDetect) el.btnDetect.textContent = '…';
   }
 
-  /* ---------- 轮询 ---------- */
-  function refresh() {
+  /* ---------- 数据轮询 ---------- */
+  function pollStatus() {
     if (!bridge) return;
-    return sh(STATUS_CMD).then(function (out) {
+    sh(STATUS_CMD).then(function (out) {
       var d = parseLine(out);
-      if (!Object.keys(d).length) {
-        el.st.textContent = 'ERR'; el.ms.textContent = t('e_parse');
-        el.diag.classList.remove('hide'); el.diagBody.textContent = out || t('diag_empty');
-        return;
-      }
-      el.diag.classList.add('hide');
-      render(d);
+      if (Object.keys(d).length > 0) render(d);
+      else { el.st.textContent = t('init_st'); el.ms.textContent = t('e_parse'); }
     }).catch(function (e) {
-      el.st.textContent = 'ERR'; el.ms.textContent = t('e_bridge');
-      el.diag.classList.remove('hide'); el.diagBody.textContent = e.message;
+      el.st.textContent = t('OFFLINE');
+      el.ms.textContent = t('e_bridge');
     });
   }
 
-  function setLive(on, err) {
-    el.liveBox.classList.remove('on', 'err');
-    if (err) { el.liveBox.classList.add('err'); }
-    else if (on) { el.liveBox.classList.add('on'); }
-    el.liveTxt.textContent = on ? t('LIVE') : (err ? 'ERR' : t('OFFLINE'));
-  }
-
-  /* ---------- 操作 ---------- */
-  function setMode(m) {
-    if (busy) return; busy = true;
-    sh("echo " + m + " > " + MODDIR + "/data/mode")
-      .then(function () { toast(t('t_mode_ok') + (m === 'monitor' ? t('mode_monitor') : t('mode_unload'))); return refresh(); })
-      .catch(function (e) { toast(t('t_mode_fail') + e.message, 'err'); })
-      .then(function () { busy = false; });
-  }
-  function setIv(iv) {
-    if (busy) return; busy = true;
-    sh("echo " + iv + " > " + MODDIR + "/data/interval; echo " + iv + " > " + MODDIR + "/data/interval_usr")
-      .then(function () { toast(t('t_iv_ok') + iv + t('t_iv_ok2')); return refresh(); })
-      .catch(function (e) { toast(t('t_iv_fail') + e.message, 'err'); })
-      .then(function () { busy = false; });
-  }
-  function setStrength(st) {
-    if (busy) return; busy = true;
-    sh("echo " + st + " > " + MODDIR + "/data/strength")
-      .then(function () { toast(t('t_str_ok') + (st === '1' ? t('str_aggr') : t('str_std'))); return refresh(); })
-      .catch(function (e) { toast(t('t_str_fail') + e.message, 'err'); })
-      .then(function () { busy = false; });
-  }
-  function manualAct() {
-    if (busy) return; busy = true;
-    el.btnAct.disabled = true; el.btnAct.classList.add('loading');
-    el.btnAct.innerHTML = '<span class="spin"></span>' + t('t_act_do');
-    sh("sh " + MODDIR + "/action.sh")
-      .then(function () { toast(t('t_act')); return refresh(); })
-      .catch(function (e) { toast(t('t_act_fail') + e.message, 'err'); })
-      .then(function () {
-        busy = false; el.btnAct.disabled = false; el.btnAct.classList.remove('loading');
-        el.btnAct.textContent = t('t_act');
-      });
-  }
-  function toggleServer() {
-    if (busy) return; busy = true;
-    var act = srvState ? 'stop' : 'start';
-    el.btnServer.disabled = true;
-    el.btnServer.textContent = act === 'start' ? t('srv_starting') : t('srv_stopping');
-    sh("sh " + MODDIR + "/bin/server.sh " + act)
-      .then(function () { return refresh(); })
-      .catch(function (e) { toast(t('t_act_fail') + e.message, 'err'); })
-      .then(function () { busy = false; el.btnServer.disabled = false; });
-  }
+  /* ---------- 检测 ---------- */
   function runDetect() {
-    if (!bridge) return;
-    var rows = el.detect.querySelectorAll('.dstat');
-    for (var i = 0; i < rows.length; i++) { rows[i].textContent = t('detect_run'); rows[i].className = 'dstat unknown'; }
-    el.scanLine.classList.add('scanning');
-    el.scanLine.querySelector('span').textContent = t('scan_go');
+    if (busy) return;
+    busy = true;
+    detectStart();
     sh(DETECT_CMD).then(function (out) {
       var d = parseLine(out);
-      if (d.ko !== undefined) {
-        applyDetect(d, true);
-        toast(t('t_detect_ok'));
-        var cnt = 0, tot = 0;
-        // 威胁维度计数 (file/cmd 为环境事实, 不计入"发现")
-        ['ko','systbl','status','mod','sysmod','ksym','dev','ref','init'].forEach(function (k) {
-          if (d[k] !== undefined && d[k] !== '') { tot++; if (String(d[k]) !== '0') cnt++; }
-        });
-        el.scanFill.style.width = '100%';
-        toast(t('t_detect_ok') + ' · ' + cnt + '/' + tot, 'ok');
-      } else { toast(t('e_parse'), 'err'); }
+      renderDetect(d);
+      lastDetect = d;
+      busy = false;
     }).catch(function (e) {
+      if (el.scanLine) el.scanLine.classList.remove('go');
+      if (el.btnDetect) el.btnDetect.textContent = t('d_title');
       toast(t('e_bridge'), 'err');
-      el.diag.classList.remove('hide'); el.diagBody.textContent = e.message;
-    }).then(function () {
-      el.scanLine.classList.remove('scanning');
-      el.scanLine.querySelector('span').textContent = t('scan_idle');
-      setTimeout(function () { el.scanFill.style.width = '0%'; }, 1200);
+      busy = false;
     });
   }
+
+  /* ---------- 立即清除 ---------- */
+  function actNow() {
+    if (busy) return;
+    busy = true;
+    var old = el.btnAct.textContent;
+    el.btnAct.textContent = t('t_act_do');
+    sh(SET_CMD + ' clear').then(function () {
+      busy = false;
+      el.btnAct.textContent = old;
+      toast(t('t_act'), 'ok');
+      setTimeout(pollStatus, 600);
+    }).catch(function (e) {
+      busy = false;
+      el.btnAct.textContent = old;
+      toast(t('t_act_fail') + e.message, 'err');
+    });
+  }
+
+  /* ---------- 本地服务 ---------- */
+  function toggleServer() {
+    if (busy) return;
+    busy = true;
+    var want = srvState === 1 ? 'stop' : 'start';
+    el.btnServer.textContent = want === 'start' ? t('srv_starting') : t('srv_stopping');
+    sh(SRV_CMD + ' ' + want + ' 8080').then(function (out) {
+      var o = parseLine(out);
+      busy = false;
+      var running = /started/.test(out) || (o.server === '1');
+      srvState = running ? 1 : 0;
+      el.btnServer.textContent = srvState === 1 ? t('srv_on') : t('srv_off');
+      el.srvHint.textContent = srvState === 1 ? t('srv_hint_on') : t('srv_hint_off');
+    }).catch(function (e) {
+      busy = false;
+      el.btnServer.textContent = srvState === 1 ? t('srv_on') : t('srv_off');
+      toast(t('e_bridge'), 'err');
+    });
+  }
+
+  /* ---------- 设置 seg ---------- */
+  function bindSeg(seg, key, cmdArg, okMsg, failMsg) {
+    if (!seg) return;
+    seg.addEventListener('click', function (ev) {
+      var b = ev.target.closest('.seg-btn');
+      if (!b || !b.getAttribute('data-' + key)) return;
+      var val = b.getAttribute('data-' + key);
+      if (b.classList.contains('on')) return;
+      if (busy) return;
+      busy = true;
+      syncSeg(seg, key, val);
+      sh(SET_CMD + ' ' + cmdArg + ' ' + val).then(function () {
+        busy = false;
+        toast(okMsg + val, 'ok');
+        setTimeout(pollStatus, 400);
+      }).catch(function (e) {
+        busy = false;
+        syncSeg(seg, key, lastData ? (key === 'mode' ? (lastData.mode === 'monitor' ? 'monitor' : 'unload')
+                                : key === 'strength' ? (lastData.strength === '1' ? '1' : '0')
+                                : String(lastData.interval || 5)) : null);
+        toast(failMsg + e.message, 'err');
+      });
+    });
+  }
+
+  /* ---------- 在线升级 ---------- */
   function checkUpdate() {
-    if (busy) return; busy = true;
-    el.btnUp.disabled = true; el.btnUp.classList.add('loading');
-    el.btnUp.innerHTML = '<span class="spin"></span>' + t('up_checking');
-    el.upNote.classList.add('hide'); el.upZipWrap.classList.add('hide');
-    el.upInfo.classList.remove('new');
-    el.upInfo.textContent = t('up_checking');
+    if (busy) return;
+    busy = true;
+    var old = el.btnUp.textContent;
+    el.btnUp.textContent = t('up_checking');
     sh(UP_CMD).then(function (out) {
       var d = parseLine(out);
+      busy = false;
+      el.btnUp.textContent = old;
+      el.upCur.textContent = d.latest || el.upCur.textContent;
       if (d.need === '1') {
-        el.upInfo.textContent = t('up_new') + ': ' + d.latest + ' (code ' + d.code + ')';
-        el.upInfo.classList.add('new');
-        el.upNote.textContent = d.note ? ('更新日志: ' + d.note) : '';
-        el.upNote.classList.remove('hide');
-        el.upZipWrap.classList.remove('hide');
-        el.upZipWrap.style.display = 'flex';
-      } else if (d.need === '0') {
-        el.upInfo.textContent = d.latest && d.latest !== d.current ? t('up_ok') + ' · 最新 ' + d.latest : t('up_ok');
+        el.upInfo.textContent = t('up_new') + ': ' + d.latest + ' (code ' + (d.code || '') + ')';
         if (d.note) { el.upNote.textContent = d.note; el.upNote.classList.remove('hide'); }
+        if (d.zip && LINK_RE.test(d.zip)) {
+          el.upZipWrap.classList.remove('hide');
+          el.btnUpZip.textContent = t('up_zip');
+          el.btnUpZip.onclick = function () { openLink(d.zip); };
+        }
+        toast(t('up_new') + ' ' + d.latest, 'ok');
+      } else if (d.need === '0') {
+        el.upInfo.textContent = t('up_ok') + ' · ' + d.latest;
+        el.upNote.classList.add('hide');
+        el.upZipWrap.classList.add('hide');
       } else {
         el.upInfo.textContent = t('up_none');
       }
     }).catch(function (e) {
+      busy = false;
+      el.btnUp.textContent = old;
       el.upInfo.textContent = t('up_none');
-      el.diag.classList.remove('hide'); el.diagBody.textContent = e.message;
-    }).then(function () {
-      busy = false; el.btnUp.disabled = false; el.btnUp.classList.remove('loading');
-      el.btnUp.textContent = t('up_check');
     });
   }
+
+  /* ---------- 打开链接 ---------- */
   function openLink(url) {
-    if (!bridge) return Promise.resolve();
-    if (!LINK_RE.test(url || '')) return Promise.resolve();
-    return sh("am start --user 0 -a android.intent.action.VIEW -d '" + url + "'");
+    if (!LINK_RE.test(url)) { toast(t('t_link_fail') + 'invalid', 'err'); return; }
+    sh(LINK_CMD + ' "' + url + '"').then(function () {
+      toast(t('t_link_ok'), 'ok');
+    }).catch(function () { toast(t('t_link_fail'), 'err'); });
   }
-  function openProject() {
-    sh('head -n 1 ' + MODDIR + '/data/link 2>/dev/null').then(function (r) {
-      var u = String(r || '').replace(/\r/g, '').split('\n')[0].trim();
-      if (!LINK_RE.test(u)) u = 'https://github.com';
-      return openLink(u);
-    }).then(function () { toast(t('t_link_ok')); })
-      .catch(function (e) { toast(t('t_link_fail') + e.message, 'err'); });
+
+  /* ---------- 页面切换 ---------- */
+  var pages = { overview: 'page-overview', detect: 'page-detect', settings: 'page-settings' };
+  function switchPage(name) {
+    var navItems = document.querySelectorAll('.nav-item');
+    navItems.forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-page') === name); });
+    Object.keys(pages).forEach(function (k) {
+      var p = $(pages[k]);
+      if (!p) return;
+      if (k === name) {
+        p.hidden = false;
+        p.classList.remove('enter');
+        void p.offsetWidth;
+        p.classList.add('enter');
+      } else {
+        p.hidden = true;
+      }
+    });
+    if (name === 'detect' && Object.keys(lastDetect).length) renderDetect(lastDetect);
   }
-  function openRelease() {
-    sh('head -n 1 ' + MODDIR + '/data/link 2>/dev/null').then(function (r) {
-      var u = String(r || '').replace(/\r/g, '').split('\n')[0].trim();
-      if (!LINK_RE.test(u)) u = 'https://github.com';
-      u = u.replace(/\/+$/, '') + '/releases/latest';
-      return openLink(u);
-    }).then(function () { toast(t('up_open')); })
-      .catch(function (e) { toast(t('t_link_fail') + e.message, 'err'); });
-  }
-  function openUpZip() {
-    var zip = lastData && lastData.zip ? lastData.zip : '';
-    if (LINK_RE.test(zip)) {
-      openLink(zip).then(function () { toast(t('up_open')); })
-        .catch(function (e) { toast(t('t_link_fail') + e.message, 'err'); });
-    } else {
-      openRelease();
+
+  /* ---------- 初始化 ---------- */
+  function init() {
+    el.chipVer.textContent = 'v3.2';
+    el.footVer.textContent = 'v3.2';
+    el.btnServer.textContent = t('srv_off');
+    el.srvHint.textContent = t('srv_hint_off');
+
+    buildPalette();
+    var uiMode = null;
+    try { uiMode = localStorage.getItem(MODE_KEY); } catch (e) {}
+    applyUiMode(uiMode || 'system');
+
+    bindSeg(el.segMode, 'mode', 'setmode', t('t_mode_ok'), t('t_mode_fail'));
+    bindSeg(el.segStr, 'strength', 'setstrength', t('t_str_ok'), t('t_str_fail'));
+    bindSeg(el.segIv, 'iv', 'setinterval', t('t_iv_ok') + '', t('t_iv_fail'));
+
+    var navItems = document.querySelectorAll('.nav-item');
+    navItems.forEach(function (b) {
+      b.addEventListener('click', function () { switchPage(b.getAttribute('data-page')); });
+    });
+    if (el.btnDetect) el.btnDetect.addEventListener('click', runDetect);
+    if (el.btnAct) el.btnAct.addEventListener('click', actNow);
+    if (el.btnServer) el.btnServer.addEventListener('click', toggleServer);
+    if (el.btnRef) el.btnRef.addEventListener('click', function () { pollStatus(); toast(t('t_ref'), 'ok'); });
+    if (el.btnUp) el.btnUp.addEventListener('click', checkUpdate);
+    if (el.btnLink) el.btnLink.addEventListener('click', function () { openLink('https://github.com/kazaf080726/ko_uninstall'); });
+    if (el.btnRelease) el.btnRelease.addEventListener('click', function () { openLink('https://github.com/kazaf080726/ko_uninstall/releases'); });
+    if (el.langToggle) { /* keep optional */ }
+
+    /* 明暗模式 */
+    if (el.segTheme) {
+      el.segTheme.addEventListener('click', function (ev) {
+        var b = ev.target.closest('.seg-btn');
+        if (!b) return;
+        var m = b.getAttribute('data-theme');
+        applyUiMode(m);
+        toast(t('t_ui_ok'), 'ok');
+      });
+    }
+
+    probe().then(function () {
+      el.liveTxt.textContent = t('CONN');
+      pollStatus();
+      setInterval(pollStatus, POLL_MS);
+    }).catch(function (e) {
+      el.liveTxt.textContent = t('OFFLINE');
+      el.led.className = 'led off';
+      el.st.textContent = t('OFFLINE');
+      el.ms.textContent = t('e_nobridge');
+      if (el.diag) {
+        el.diag.classList.remove('hide');
+        el.diagBody.textContent = String(e && e.message ? e.message : e);
+      }
+      try { window.ksu && window.ksu.toast && window.ksu.toast(t('e_nobridge')); } catch (e2) {}
+    });
+
+    /* 系统明暗变化跟随 */
+    if (window.matchMedia) {
+      try {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
+          var m = null;
+          try { m = localStorage.getItem(MODE_KEY); } catch (e) {}
+          if (!m || m === 'system') applyUiMode('system');
+        });
+      } catch (e) {}
     }
   }
 
-  /* ---------- 语言 ---------- */
-  function toggleLang() {
-    lang = (lang === 'zh') ? 'en' : 'zh';
-    try { localStorage.setItem(LANG_KEY, lang); } catch (e) {}
-    document.documentElement.lang = (lang === 'zh') ? 'zh-CN' : 'en';
-    el.langToggle.textContent = (lang === 'zh') ? 'EN' : '中';
-    if (lastData) render(lastData);
-    if (!bridge) { el.st.textContent = t('init_st'); el.ms.textContent = t('init_ms'); }
-    el.srvHint.textContent = srvState ? t('srv_hint_on') : t('srv_hint_off');
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
   }
-
-  /* ---------- 事件绑定 ---------- */
-  el.langToggle.addEventListener('click', toggleLang);
-  el.segMode.addEventListener('click', function (e) {
-    var b = e.target.closest('button');
-    if (!b) return;
-    var m = b.getAttribute('data-mode');
-    if (m) setMode(m);
-  });
-  el.segIv.addEventListener('click', function (e) {
-    var b = e.target.closest('button');
-    if (!b) return;
-    var iv = b.getAttribute('data-iv');
-    if (iv) setIv(iv);
-  });
-  el.segStr.addEventListener('click', function (e) {
-    var b = e.target.closest('button');
-    if (!b) return;
-    var st = b.getAttribute('data-strength');
-    if (st) setStrength(st);
-  });
-  el.btnAct.addEventListener('click', manualAct);
-  el.btnRef.addEventListener('click', function () { refresh().then(function () { toast(t('t_ref')); }).catch(function () {}); });
-  el.btnServer.addEventListener('click', toggleServer);
-  el.btnDetect.addEventListener('click', runDetect);
-  el.btnLink.addEventListener('click', openProject);
-  el.btnRelease.addEventListener('click', openRelease);
-  el.btnUpZip.addEventListener('click', openUpZip);
-  el.btnUp.addEventListener('click', checkUpdate);
-
-  /* ---------- 启动 ---------- */
-  toggleLang(); // 初始化语言文案
-  probe().then(function (tried) {
-    if (!bridge) {
-      el.st.textContent = 'NO BRIDGE'; el.ms.textContent = t('e_nobridge');
-      setLive(false);
-      el.diag.classList.remove('hide'); el.diagBody.textContent = tried.join('\n');
-      return;
-    }
-    setLive(true);
-    refresh();
-    setInterval(refresh, POLL_MS);
-  });
 })();

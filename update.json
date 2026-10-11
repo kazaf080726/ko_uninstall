@@ -1,8 +1,8 @@
 {
-  "version": "v3.1",
-  "versionCode": 310,
+  "version": "v3.2",
+  "versionCode": 320,
   "lastUpdate": "2026-10-11",
-  "changelog": "v3.1：管理 APP 液态玻璃 UI 全面重构——三屏结构（首页/检测/设置）复刻 KernelSU / SukiSU 管理器界面、流动光斑玻璃背景、半透明玻璃卡片、Q弹弹性入场与按压缩放动画、呼吸状态灯、检测项逐条弹入；新增 root 缺失全屏玻璃提示（请赋予应用 root 权限后重新打开应用，杜绝无 root 黑屏）；保留 v3.0 全部功能（黑屏根治、纯 rmmod 无挂载、开机自保护、WebUI+APP 双端管理、12 维检测、防复活、update.json OTA）。",
-  "zipUrl": "https://github.com/kazaf080726/ko_uninstall/releases/download/v3.1/KOUninstall-v3.1.zip",
-  "notes": "https://github.com/kazaf080726/ko_uninstall/releases/tag/v3.1"
+  "changelog": "v3.2 第三轮 APP UI 全面重构：排版全面收紧(间距12→8dp级)；文字大小随外框自适应(界面缩放滑块+密度适配)；底部悬浮导航图标/文字放大(19sp/12sp)并修正偏移；修复浅色模式下悬浮栏仍为深色的bug(深浅色感知玻璃)；新增环形动态指示(首页状态环+检测页进度环)与动态流动进度条；APP图标与首页Logo更换为 inte 环形图标；液态玻璃光斑动效增强；修复导航角标/滑块/日志折叠等细节bug；模块与WebUI功能全保留。",
+  "zipUrl": "https://github.com/kazaf080726/ko_uninstall/releases/download/v3.2/KOUninstall-v3.2.zip",
+  "notes": "https://github.com/kazaf080726/ko_uninstall/releases/tag/v3.2"
 }

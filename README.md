@@ -3,9 +3,7 @@
 > **卸载 inte.ko —— 一加 / OPPO / 真我 ColorOS 的内核完整性检测模块，让 inte 彻底失效。**
 > 开机自动卸载 inte 及其关联 KO 模块（`oplus_integrity` / `oplus_kohashpro` / `oplus_secure_guard(_new)`），守护进程全天候盯防，模块一旦复活立即再次卸载。
 
-**作者：Kazaf** · **版本：v3.1** · **License：MIT**
-
-续承三位前辈的弃置模块：`ddc_inte_killer`（冬日渡川）、`Fuck-inte`（无敌WX）、`MAPLE 内核检测`（MapleAutumn），延续其使命并全面重构。
+**作者：Kazaf** · **版本：v3.2** · **License：MIT**
 
 ---
 
@@ -35,12 +33,6 @@
 - 守护进程隐藏运行，无模块路径痕迹
 - 卸载模块后守护进程立即停止，清理所有临时文件
 - 纯 rmmod 卸载方案，不注入任何挂载/内核模块，无 bootloop 风险
-
-## 致谢
-
-- 冬日渡川 —— `ddc_inte_killer` 原作者
-- 无敌WX —— `Fuck-inte` 原作者
-- MapleAutumn —— `MAPLE · 多于ko模块检测`（3.sh）
 
 ## 免责声明
 
