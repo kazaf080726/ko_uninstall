@@ -1,8 +1,9 @@
 #!/system/bin/sh
 # ============================================================================
-# common.sh — KO卸载 公共函数库
+# common.sh — KO卸载 公共函数库 (v1.1.0 增强版)
 # 作者: Kazaf  |  续承: 冬日渡川(ddc_inte_killer) / 无敌WX(Fuck-inte) / MapleAutumn(3.sh)
 # 适配: Magisk / KernelSU / SukiSU / KernelSU-Next / RKSU / APatch
+# v1.1.0: 检测增强(文件级/变体/节点内容/内核参数) + 强度分级 + 轻量快速检测
 # ============================================================================
 
 PATH="/system/bin:/system/xbin:/vendor/bin:/data/adb/ksu/bin:/data/adb/ap/bin:/data/adb/magisk:$PATH"
@@ -20,6 +21,9 @@ done
 # oplus_kohashpro   : 部分机型独立加载
 # oplus_secure_guard / _new : vendor_boot 工具原目标 (兜底)
 INTE_CANDIDATES="inte oplus_integrity oplus_kohashpro oplus_secure_guard oplus_secure_guard_new"
+
+# ---- 文件级候选 (由 vendor/system 中存在的 .ko 文件推导, 覆盖"3个KO模块") ----
+INTE_FILES="inte.ko oplus_integrity.ko oplus_kohashpro.ko oplus_secure_guard.ko oplus_secure_guard_new.ko"
 
 # ---- 保护名单 (绝不触碰, 即使名字相近也不动) ----------------------------------
 INTE_PROTECT="cdt_integrity cdt_integrity.ko msm_core qmi_helpers"
@@ -46,24 +50,53 @@ ko_loaded() {
     loaded_list | awk -v m="$1" '$1==m{found=1} END{exit !found}'
 }
 
-detected_kos() {
+# ---- 文件级候选推导: 系统里存在 inte*.ko 文件 -> 对应模块名 --------------------
+inte_file_candidates() {
     _out=""
+    for _f in $INTE_FILES; do
+        for _d in /vendor/lib/modules /system/lib/modules /lib/modules; do
+            if [ -f "$_d/$_f" ]; then
+                _out="$_out ${_f%.ko}"
+                break
+            fi
+        done
+    done
+    printf '%s' "$_out" | sed 's/^ *//; s/ *$//'
+}
+
+# ---- 已加载目标检测 (轻量优先: 一次读 /proc/modules + sysfs) -------------------
+detected_kos() {
+    _mods=$(cat /proc/modules 2>/dev/null)
+    _out=""
+    _has() { # $1=模块名
+        case " $_mods " in
+            *" $1 "*) return 0 ;;
+        esac
+        [ -d "/sys/module/$1" ] && return 0
+        return 1
+    }
+    # 1) 文件级候选 (覆盖 inte.ko / oplus_integrity.ko / oplus_kohashpro.ko 三个 KO)
+    for _m in $(inte_file_candidates); do
+        is_protected "$_m" && continue
+        if _has "$_m"; then _out="$_out $_m"; fi
+    done
+    # 2) 精确白名单兜底
     for _c in $INTE_CANDIDATES; do
         is_protected "$_c" && continue
-        if [ -d "/sys/module/$_c" ]; then
-            _out="$_out $_c"
-        fi
+        case " $_out " in *" $_c "*) continue ;; esac
+        if _has "$_c"; then _out="$_out $_c"; fi
     done
-    if [ -r /proc/modules ]; then
-        _names=$(awk '{print $1}' /proc/modules 2>/dev/null)
-        for _c in $INTE_CANDIDATES; do
-            is_protected "$_c" && continue
-            case " $_out " in *" $_c "*) continue ;; esac
-            for _n in $_names; do
-                [ "$_n" = "$_c" ] && _out="$_out $_c"
-            done
-        done
-    fi
+    # 3) inte 前缀变体 (仅当 inte 家族已被命中, 防误伤无关 inte_* 内核组件)
+    case " $_out " in
+        *" inte "*)
+            for _v in /sys/module/inte*; do
+                [ -d "$_v" ] || continue
+                _n=${_v#/sys/module/}
+                is_protected "$_n" && continue
+                case " $_out " in *" $_n "*) continue ;; esac
+                _out="$_out $_n"
+            done ;;
+    esac
     printf '%s' "$_out" | sed 's/^ *//; s/ *$//'
 }
 
@@ -102,6 +135,76 @@ maple_mod() {
 }
 # /sys/module/inte 目录是否存在
 maple_sysmod() { [ -d /sys/module/inte ] && printf '1' || printf '0'; }
+
+# ---- v1.1.0 新增检测维度 -----------------------------------------------------
+# /proc/inte_ko 内容摘要 (可读面板展示)
+inte_proc_content() {
+    head -c 80 /proc/inte_ko 2>/dev/null | tr -d '\r\n' | cut -c1-80
+}
+# /dev 下 inte 相关节点数量
+inte_dev_nodes() {
+    _n=0
+    for _p in /dev/inte* /dev/oplus_integrity*; do
+        [ -e "$_p" ] && _n=$((_n + 1))
+    done
+    printf '%s' "$_n"
+}
+# inte.ko 文件位置 (存在返回 1 + 路径, 否则 0)
+inte_ko_file() {
+    for _f in /vendor/lib/modules/inte.ko /system/lib/modules/inte.ko \
+              /lib/modules/inte.ko /lib/modules/*/inte.ko; do
+        [ -f "$_f" ] && { printf '1|%s' "$_f"; return; }
+    done
+    printf '0|'
+}
+# 内核 cmdline 是否含 inte 特征
+cmdline_hit() {
+    case "$(cat /proc/cmdline 2>/dev/null)" in
+        *inte* | *integrity*) printf '1' ;;
+        *) printf '0' ;;
+    esac
+}
+# /sys/module/inte 运行时状态
+inte_refcnt()    { cat /sys/module/inte/refcnt 2>/dev/null; }
+inte_initstate() { cat /sys/module/inte/initstate 2>/dev/null; }
+
+# ---- 强度分级: 0=标准 1=激进(自适应间隔+更多尝试) ------------------------------
+ko_strength() {
+    _s=$(cat "${DATA:-/data/adb/modules/ko_uninstall/data}/strength" 2>/dev/null)
+    case "$_s" in 1) printf '1' ;; *) printf '0' ;; esac
+}
+
+# ---- 防护统计 (累计卸载 / 复活次数) -------------------------------------------
+ko_stats() {
+    cat "${DATA:-/data/adb/modules/ko_uninstall/data}/stats" 2>/dev/null
+}
+stats_add() { # stats_add unload|revive
+    _f="${DATA:-/data/adb/modules/ko_uninstall/data}/stats"
+    _pairs=$(cat "$_f" 2>/dev/null)
+    _u=$(printf '%s\n' "$_pairs" | tr ',' '\n' | sed -n 's/^unload=//p' | head -1)
+    _r=$(printf '%s\n' "$_pairs" | tr ',' '\n' | sed -n 's/^revive=//p' | head -1)
+    [ "$_u" ] || _u=0
+    [ "$_r" ] || _r=0
+    case "$1" in
+        unload) _u=$((_u + 1)) ;;
+        revive) _r=$((_r + 1)) ;;
+    esac
+    printf 'unload=%s,revive=%s\n' "$_u" "$_r" >"$_f.tmp" 2>/dev/null && mv "$_f.tmp" "$_f" 2>/dev/null
+}
+
+# ---- 轻量快速检测: 仅一次 grep /proc/modules 前缀行 + sysfs inte* 目录 ---------
+# 用于守护高频复核 / 等待清除, 避免重量级 detected_kos 的多次 sysfs 遍历
+_loaded_fast() {
+    _m=$(cat /proc/modules 2>/dev/null)
+    case "$_m" in
+        *" inte "*) return 0 ;;
+        *" oplus_integrity "*) return 0 ;;
+        *" oplus_kohashpro "*) return 0 ;;
+        *" oplus_secure_guard "*) return 0 ;;
+    esac
+    ls -d /sys/module/inte* 2>/dev/null | grep -q . && return 0
+    return 1
+}
 
 # ---- 设备信息 --------------------------------------------------------------
 dev_brand() { getprop ro.product.brand 2>/dev/null; }

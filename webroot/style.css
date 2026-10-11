@@ -1,7 +1,7 @@
 /* ==========================================================================
-   KO卸载 · 液态玻璃控制台 (Liquid Glass UI)
+   KO卸载 · 液态玻璃控制台 (Liquid Glass UI) v1.1.0
    作者: Kazaf
-   设计: 深空极光背景 + 磨砂玻璃卡片 + 弹性动效
+   设计: 深空极光背景 + 磨砂玻璃卡片 + 弹性动效 + 实时扫描/进度动画
    ========================================================================== */
 
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -85,7 +85,19 @@ body {
   border-radius: var(--r-lg);
   box-shadow: 0 8px 32px rgba(2, 8, 20, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.09);
   position: relative;
+  overflow: hidden;
 }
+
+/* 卡片高光流动 (v1.1.0) */
+.panel::after, .hero::after, .protbar::after, .stat::after {
+  content: ""; position: absolute; top: 0; left: -70%;
+  width: 45%; height: 100%;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,0.045), transparent);
+  transform: skewX(-18deg);
+  pointer-events: none;
+  animation: cardSweep 7s var(--ease) infinite;
+}
+@keyframes cardSweep { 0% { left: -70%; } 60%, 100% { left: 140%; } }
 
 .app {
   position: relative;
@@ -104,7 +116,8 @@ body {
   padding: 12px 16px;
 }
 .brand { display: flex; align-items: center; gap: 11px; }
-.logo { width: 42px; height: 42px; filter: drop-shadow(0 4px 12px rgba(34, 211, 238, 0.35)); }
+.logo { width: 42px; height: 42px; filter: drop-shadow(0 4px 12px rgba(34, 211, 238, 0.35)); animation: logoFloat 4.5s ease-in-out infinite; }
+@keyframes logoFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-2.5px); } }
 .brand-name { font-size: 17px; font-weight: 800; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
 .brand-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
 .chip {
@@ -189,7 +202,6 @@ button:disabled { opacity: 0.45; pointer-events: none; }
 .hero {
   display: flex; align-items: center; gap: 16px;
   padding: 18px 18px;
-  overflow: hidden;
 }
 .hero::before {
   content: ""; position: absolute; inset: 0;
@@ -206,7 +218,15 @@ button:disabled { opacity: 0.45; pointer-events: none; }
   animation: ringSpin 6s linear infinite;
   box-shadow: 0 0 26px var(--ring-glow, rgba(52,211,153,0.35));
   transition: --ring-a 0.4s, --ring-b 0.4s, --ring-glow 0.4s;
+  position: relative;
 }
+.hero-ring::after { /* 外圈脉冲 (v1.1.0) */
+  content: ""; position: absolute; inset: -5px; border-radius: 50%;
+  border: 2px solid var(--ring-a, #34d399);
+  opacity: 0.35;
+  animation: ringPulse 2.4s ease-out infinite;
+}
+@keyframes ringPulse { 0% { transform: scale(0.96); opacity: 0.55; } 100% { transform: scale(1.18); opacity: 0; } }
 @keyframes ringSpin { to { transform: rotate(360deg); } }
 .ring-inner {
   width: 72px; height: 72px;
@@ -237,16 +257,48 @@ button:disabled { opacity: 0.45; pointer-events: none; }
 .hero.err  .hero-pill { background: rgba(248,113,113,0.14); border-color: rgba(248,113,113,0.45); color: var(--red); }
 .hero.info .hero-pill { background: rgba(56,189,248,0.14); border-color: rgba(56,189,248,0.45); color: var(--sky); }
 
+/* ============ 防护倒计时进度条 (v1.1.0) ============ */
+.protbar { padding: 12px 16px; }
+.protbar-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.protbar-k { font-size: 11px; color: var(--muted); letter-spacing: 1px; }
+.protbar-v { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.protbar-track {
+  height: 8px; border-radius: 999px;
+  background: rgba(2, 8, 20, 0.6);
+  border: 1px solid rgba(255,255,255,0.08);
+  overflow: hidden;
+}
+.protbar-fill {
+  height: 100%; width: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--bar-a, #34d399), var(--bar-b, #22d3ee));
+  box-shadow: 0 0 12px var(--bar-glow, rgba(52,211,153,0.5));
+  transition: width 0.4s linear, background 0.5s;
+  position: relative;
+}
+.protbar-fill::after { /* 进度流光 */
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
+  animation: barShine 2.2s linear infinite;
+}
+@keyframes barShine { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+.protbar.ok .protbar-v { color: var(--green); }
+.protbar.warn .protbar-v { color: var(--amber); }
+.protbar.err .protbar-v { color: var(--red); }
+
 /* ============ 指标卡组 ============ */
 .grid4 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 .stat { padding: 14px 16px; transition: transform 0.25s var(--spring), box-shadow 0.3s; }
-.stat:hover { transform: translateY(-3px); }
+.stat:hover { transform: translateY(-3px); box-shadow: 0 12px 30px rgba(2,8,20,0.5); }
 .stat-k { font-size: 11px; color: var(--muted); letter-spacing: 1px; }
 .stat-v { font-size: 19px; font-weight: 800; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stat-s { font-size: 10px; color: var(--faint); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stat .stat-v.ok { color: var(--green); }
 .stat .stat-v.warn { color: var(--amber); }
 .stat .stat-v.err { color: var(--red); }
+/* 数值更新弹跳 (v1.1.0) */
+.stat-v.bump { animation: bump 0.4s var(--spring); }
+@keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.1); } 100% { transform: scale(1); } }
 
 /* ============ 面板 ============ */
 .panel { padding: 16px 16px 18px; }
@@ -258,6 +310,28 @@ button:disabled { opacity: 0.45; pointer-events: none; }
 }
 .panel-h::before { content: ""; width: 6px; height: 14px; border-radius: 3px; background: linear-gradient(180deg, var(--cyan), var(--blue)); margin-right: 8px; }
 
+/* 实时扫描条 (v1.1.0) */
+.scanline {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 10px;
+  font-size: 10px; letter-spacing: 1px; color: var(--faint);
+}
+.scanline .scanbar {
+  flex: 1; height: 5px; border-radius: 999px;
+  background: rgba(2,8,20,0.6); border: 1px solid rgba(255,255,255,0.07);
+  overflow: hidden;
+}
+.scanline .scanbar i {
+  display: block; height: 100%; width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--cyan), var(--sky));
+  box-shadow: 0 0 10px rgba(34,211,238,0.6);
+  transition: width 0.3s var(--ease);
+}
+.scanline.scanning .scanbar i { animation: scanPulse 1.4s ease-in-out infinite; }
+@keyframes scanPulse { 0% { width: 12%; opacity: 0.7; } 50% { width: 88%; opacity: 1; } 100% { width: 12%; opacity: 0.7; } }
+.scanline.scanning > span { color: var(--cyan); }
+
 /* 检测行 */
 .drow {
   display: flex; align-items: center; justify-content: space-between;
@@ -265,13 +339,23 @@ button:disabled { opacity: 0.45; pointer-events: none; }
   border-bottom: 1px dashed rgba(255,255,255,0.08);
   font-size: 13px;
   animation: slideIn 0.4s var(--ease) both;
+  position: relative;
 }
 .drow:last-child { border-bottom: none; }
 .drow .dk { color: var(--muted); font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 12px; }
+/* 扫描光效 (v1.1.0) */
+.drow.scan { overflow: hidden; }
+.drow.scan::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: -40%; width: 35%;
+  background: linear-gradient(100deg, transparent, rgba(34,211,238,0.16), transparent);
+  animation: rowScan 1.1s var(--ease) infinite;
+}
+@keyframes rowScan { 0% { left: -40%; } 100% { left: 110%; } }
 .dstat {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
   padding: 3px 10px; border-radius: 999px;
+  transition: all 0.3s var(--spring);
 }
 .dstat::before { content: ""; width: 7px; height: 7px; border-radius: 50%; }
 .dstat.hit { background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.4); color: var(--red); }
@@ -280,6 +364,8 @@ button:disabled { opacity: 0.45; pointer-events: none; }
 .dstat.clean::before { background: var(--green); }
 .dstat.unknown { background: rgba(220,235,255,0.08); border: 1px solid rgba(220,235,255,0.25); color: var(--muted); }
 .dstat.unknown::before { background: var(--muted); }
+.dstat.flash { animation: flashPop 0.5s var(--spring); }
+@keyframes flashPop { 0% { transform: scale(1.25); } 100% { transform: scale(1); } }
 @keyframes slideIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
 /* 控制 */
@@ -372,6 +458,8 @@ button:disabled { opacity: 0.45; pointer-events: none; }
   box-shadow: 0 10px 30px rgba(2,8,20,0.5);
 }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.ok { border-color: rgba(52,211,153,0.5); color: var(--green); }
+#toast.err { border-color: rgba(248,113,113,0.5); color: var(--red); }
 
 /* ============ 响应式 ============ */
 @media (min-width: 768px) {
@@ -382,6 +470,8 @@ button:disabled { opacity: 0.45; pointer-events: none; }
 
 /* 降低动效偏好 */
 @media (prefers-reduced-motion: reduce) {
-  .orb, .btn.primary::after, .hero-ring, .led { animation: none !important; }
+  .orb, .btn.primary::after, .hero-ring, .hero-ring::after, .led, .logo,
+  .protbar-fill::after, .panel::after, .hero::after, .protbar::after, .stat::after,
+  .scanline.scanning .scanbar i, .drow.scan::after { animation: none !important; }
   button, .stat { transition: none; }
 }

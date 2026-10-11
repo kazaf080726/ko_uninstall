@@ -34,7 +34,7 @@
         <text x="32" y="41" font-family="Arial Black,Arial,sans-serif" font-size="22" font-weight="900" fill="#081018" text-anchor="middle">KO</text>
       </svg>
       <div class="brand-txt">
-        <div class="brand-name">KO卸载 <span class="chip" id="chipVer">v1.00</span></div>
+        <div class="brand-name">KO卸载 <span class="chip" id="chipVer">v1.1.0</span></div>
         <div class="brand-sub">Kazaf · 史诗级重构</div>
       </div>
     </div>
@@ -59,8 +59,19 @@
         <span id="metaGuard">主动防护 --</span>
         <span class="dot"></span>
         <span id="metaMode">模式 --</span>
+        <span class="dot"></span>
+        <span id="metaStr">强度 --</span>
       </div>
     </div>
+  </section>
+
+  <!-- 防护倒计时进度条 (v1.1.0) -->
+  <section class="protbar glass" aria-label="防护进度">
+    <div class="protbar-top">
+      <span class="protbar-k" id="protK">下次复核</span>
+      <span class="protbar-v" id="protV">--</span>
+    </div>
+    <div class="protbar-track"><div class="protbar-fill" id="protFill"></div></div>
   </section>
 
   <!-- 指标卡组 -->
@@ -71,12 +82,13 @@
     <div class="stat glass"><div class="stat-k">运行时长</div><div class="stat-v" id="vRun">--</div><div class="stat-s" id="sRun">本次运行</div></div>
   </section>
 
-  <!-- 内核检测面板 (MAPLE / 3.sh) -->
+  <!-- 内核检测面板 (MAPLE+ / v1.1.0 十二维) -->
   <section class="panel glass">
     <div class="panel-h">
-      <span>内核检测 · MAPLE</span>
+      <span>内核检测 · MAPLE+</span>
       <button class="mini" id="btnDetect">重新检测</button>
     </div>
+    <div class="scanline" id="scanLine"><span>实时扫描</span><div class="scanbar"><i id="scanFill"></i></div></div>
     <div class="detect" id="detect">
       <div class="drow"><span class="dk">/proc/inte_ko</span><span class="dstat unknown" id="d_ko">检测中</span></div>
       <div class="drow"><span class="dk">/proc/inte_systbl</span><span class="dstat unknown" id="d_systbl">检测中</span></div>
@@ -84,6 +96,11 @@
       <div class="drow"><span class="dk">/proc/modules · inte</span><span class="dstat unknown" id="d_mod">检测中</span></div>
       <div class="drow"><span class="dk">/sys/module/inte</span><span class="dstat unknown" id="d_sysmod">检测中</span></div>
       <div class="drow"><span class="dk">kallsyms · inte</span><span class="dstat unknown" id="d_ksym">检测中</span></div>
+      <div class="drow"><span class="dk">/dev · inte 节点</span><span class="dstat unknown" id="d_dev">检测中</span></div>
+      <div class="drow"><span class="dk">inte.ko 文件</span><span class="dstat unknown" id="d_file">检测中</span></div>
+      <div class="drow"><span class="dk">内核 cmdline</span><span class="dstat unknown" id="d_cmd">检测中</span></div>
+      <div class="drow"><span class="dk">refcnt</span><span class="dstat unknown" id="d_ref">检测中</span></div>
+      <div class="drow"><span class="dk">initstate</span><span class="dstat unknown" id="d_init">检测中</span></div>
     </div>
   </section>
 
@@ -97,6 +114,13 @@
       <button class="seg-btn" data-mode="monitor">监控模式</button>
     </div>
     <div class="ctrl-hint" id="modeHint">开机即卸载 inte，使其失效</div>
+
+    <div class="ctrl-k">屏蔽强度</div>
+    <div class="seg" id="segStr">
+      <button class="seg-btn on" data-strength="1">激进 · 自适应</button>
+      <button class="seg-btn" data-strength="0">标准</button>
+    </div>
+    <div class="ctrl-hint" id="strHint">激进: 复活频繁时自动收紧复核间隔, 最多 8 轮卸载</div>
 
     <div class="ctrl-k">复核频率</div>
     <div class="seg" id="segIv">
@@ -126,7 +150,7 @@
     <div class="update-row">
       <div class="update-cur">
         <span class="up-k">当前版本</span>
-        <span class="up-v" id="upCur">v1.00</span>
+        <span class="up-v" id="upCur">v1.1.0</span>
       </div>
       <button class="btn primary sm2" id="btnUp">检查更新</button>
     </div>
@@ -144,6 +168,8 @@
     <div class="kv"><span class="k">Root 管理器</span><span class="dots"></span><span class="v" id="vRoot">--</span></div>
     <div class="kv"><span class="k">命中目标</span><span class="dots"></span><span class="v" id="vTargets">--</span></div>
     <div class="kv"><span class="k">系统运行</span><span class="dots"></span><span class="v" id="vUp">--</span></div>
+    <div class="kv"><span class="k">累计卸载</span><span class="dots"></span><span class="v" id="vUnload">--</span></div>
+    <div class="kv"><span class="k">复活次数</span><span class="dots"></span><span class="v" id="vRevive">--</span></div>
   </section>
 
   <!-- 运行日志 -->
@@ -154,7 +180,7 @@
 
   <footer class="foot">
     <span>KO卸载 · Kazaf · 开源</span>
-    <span id="footVer">v1.00</span>
+    <span id="footVer">v1.1.0</span>
   </footer>
 
   <!-- 桥接诊断 -->

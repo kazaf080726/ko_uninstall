@@ -1,8 +1,8 @@
 {
-  "version": "v1.00",
-  "versionCode": 100,
+  "version": "v1.1.0",
+  "versionCode": 110,
   "lastUpdate": "2026-10-11",
-  "changelog": "首发 v1.00：史诗级重构——液态玻璃 WebUI、内核检测 MAPLE 集成、守护进程强化、本地服务模式、在线升级支持",
-  "zipUrl": "https://github.com/kazaf080726/ko_uninstall/releases/download/v1.00/KOUninstall-v1.00.zip",
-  "notes": "https://github.com/kazaf080726/ko_uninstall/releases/tag/v1.00"
+  "changelog": "v1.1.0：检测增强至 12 维（/dev 节点 / inte.ko 文件 / cmdline / refcnt / initstate）；屏蔽增强：激进强度自适应收紧复核间隔（复活≥3 次自动 1s）、8 轮卸载上限、卸载/复活统计；启动与复核提速（轻量快速检测）；WebUI 新增防护倒计时进度条、实时扫描动效、12 维检测面板、强度切换、统计卡。修复 OTA 裸数字 versionCode 解析。",
+  "zipUrl": "https://github.com/kazaf080726/ko_uninstall/releases/download/v1.1.0/KOUninstall-v1.1.0.zip",
+  "notes": "https://github.com/kazaf080726/ko_uninstall/releases/tag/v1.1.0"
 }

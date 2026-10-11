@@ -1,9 +1,10 @@
 #!/system/bin/sh
 # ============================================================================
-# daemon.sh — KO卸载 守护进程
+# daemon.sh — KO卸载 守护进程 (v1.1.0)
 # 作者: Kazaf
 # 启动方式: 必须经 bin/launch_daemon.sh 启动 (进程隐藏)
 # 正文标记 @@__KO_DAEMON_BODY__@@ 之上是标记行, 之下才是执行代码
+# v1.1.0: 轻量快速复核 / 激进模式自适应间隔 / 卸载与复活统计 / 启动提速
 # ============================================================================
 @@__KO_DAEMON_BODY__@@
 # ---- 正文开始 ------------------------------------------------------------
@@ -25,13 +26,13 @@ PIDF="$DATA/daemon.pid"
 mkdir -p "$DATA" 2>/dev/null
 
 LOGMAX=262144
+_UPT=$(awk '{print int($1)}' /proc/uptime 2>/dev/null)
 
 log() {
     _ts=$(date '+%Y-%m-%d %H:%M:%S' 2>/dev/null)
     case "$_ts" in
         19* | 20[01][0-9]-*)
-            _up=$(awk '{print int($1)}' /proc/uptime 2>/dev/null)
-            _ts="开机+${_up:-?}s" ;;
+            _ts="开机+${_UPT:-?}s" ;;
     esac
     echo "$_ts [$1] $2" >>"$LOG" 2>/dev/null
     _sz=$(wc -c <"$LOG" 2>/dev/null || echo 0)
@@ -51,13 +52,16 @@ if [ -f "$LOCK" ]; then
 fi
 echo $$ >"$LOCK"
 echo $$ >"$PIDF"
-awk '{print int($1)}' /proc/uptime >"$DATA/boot_uptime" 2>/dev/null
-trap 'rm -f "$LOCK"; setstate stopped; log "exit" "守护进程退出"' EXIT INT TERM
+echo "$_UPT" >"$DATA/boot_uptime" 2>/dev/null
+# 优雅退出: TERM/INT -> exit 0 -> 触发 EXIT trap 清理 (仅 trap 清理不 exit 会导致守护残留)
+trap 'rm -f "$LOCK"; setstate stopped; log "exit" "守护进程退出"' EXIT
+trap 'exit 0' INT TERM
 
 # ---- 卸载全部目标 (逐模块, 记录结果) ---------------------------------------
 unload_all() {
     _ok=0
-    for _m in $(detected_kos); do
+    _tg=$(detected_kos)
+    for _m in $_tg; do
         _out=$(do_rmmod "$_m")
         _rc=$?
         log "unload" "rmmod $_m => ${_out:-（无输出, 成功）}"
@@ -77,25 +81,16 @@ unload_all() {
     printf '%s' "$_ok"
 }
 
+# 轻量等待清除: 用 _loaded_fast 替代重量级 detected_kos
 wait_clear() {
     _i=0
     while [ "$_i" -lt "$1" ]; do
-        [ -z "$(detected_kos)" ] && return 0
+        _loaded_fast || return 0
         sleep 1
         _i=$((_i + 1))
     done
-    [ -z "$(detected_kos)" ]
-}
-
-_loaded_fast() {
-    while IFS= read -r _l; do
-        for _c in $INTE_CANDIDATES; do
-            case " $_l " in
-                *" $_c "*) return 0 ;;
-            esac
-        done
-    done < /proc/modules 2>/dev/null
-    return 1
+    _loaded_fast && return 1
+    return 0
 }
 
 # ---- 本地服务模式保活 (每 10 tick 检查一次) --------------------------------
@@ -113,6 +108,9 @@ log "boot" "root=$(root_manager) rmmod=$(find_rmmod)"
 mode=$(cat "$MODE_F" 2>/dev/null)
 case "$mode" in unload | monitor) ;; *) mode=unload ;; esac
 log "boot" "模式=$mode"
+
+strength=$(ko_strength)
+log "boot" "强度=$( [ "$strength" = "1" ] && echo 激进 || echo 标准 )"
 
 setstate running
 
@@ -134,18 +132,19 @@ fi
 perform_unload() {
     setstate running
     _attempt=0
-    while [ "$_attempt" -lt 5 ]; do
+    while [ "$_attempt" -lt "$1" ]; do
         _attempt=$((_attempt + 1))
-        [ -z "$(detected_kos)" ] && break
+        _loaded_fast || break
         unload_all >/dev/null
-        if wait_clear 15; then
+        if wait_clear 10; then
+            stats_add unload 2>/dev/null
             log "unload" "inte 已清除 (第 $_attempt 次尝试)"
             break
         fi
         log "unload" "第 $_attempt 次尝试后仍存在:$(detected_kos)"
-        [ "$_attempt" -lt 5 ] && sleep 2
+        [ "$_attempt" -lt "$1" ] && sleep 1
     done
-    if [ -z "$(detected_kos)" ]; then
+    if ! _loaded_fast; then
         setstate normal
         log "check" "已清除. 剩余 /proc 节点: $(inte_nodes)/3 (maple=$(maple_ko)/$(maple_systbl)/$(maple_status), ksym=$(kallsyms_hit))"
     else
@@ -158,11 +157,12 @@ perform_unload() {
             log "check" "存在 builtin 模块, 无法卸载"
         else
             setstate failed
-            log "check" "5 次尝试后仍未清除:$(detected_kos)"
+            log "check" "$1 次尝试后仍未清除:$(detected_kos)"
         fi
     fi
 }
 
+# 参数解析: 读取用户设置
 INTERVAL=$(cat "$DATA/interval" 2>/dev/null)
 case "$INTERVAL" in
     '' | *[!0-9]*) INTERVAL=5 ;;
@@ -170,34 +170,64 @@ esac
 [ "$INTERVAL" -lt 1 ] && INTERVAL=1
 [ "$INTERVAL" -gt 3600 ] && INTERVAL=3600
 echo "$INTERVAL" > "$DATA/interval" 2>/dev/null
-log "boot" "复核间隔=${INTERVAL}s"
+INTERVAL_USR="$INTERVAL"
+[ -f "$DATA/interval_usr" ] && INTERVAL_USR=$(cat "$DATA/interval_usr" 2>/dev/null)
+case "$INTERVAL_USR" in '' | *[!0-9]*) INTERVAL_USR="$INTERVAL" ;; esac
+[ "$INTERVAL_USR" -lt 1 ] && INTERVAL_USR=1
+[ "$INTERVAL_USR" -gt 3600 ] && INTERVAL_USR=3600
+log "boot" "复核间隔=${INTERVAL}s (用户设定=${INTERVAL_USR}s)"
+
+# 激进强度: 首轮尝试次数
+MAX_TRY=5
+[ "$strength" = "1" ] && MAX_TRY=8
+log "boot" "卸载尝试上限=${MAX_TRY}"
 
 # 首次卸载
-perform_unload
+perform_unload "$MAX_TRY"
 
 # 复核循环
 tick=0
+battle=0
 while true; do
     sleep "$INTERVAL"
     tick=$((tick + 1))
 
     if _loaded_fast; then
-        log "recheck" "检测到 inte 重新出现:$(detected_kos), 立即卸载"
+        stats_add revive 2>/dev/null
+        battle=$((battle + 1))
+        log "recheck" "检测到 inte 重新出现:$(detected_kos), 立即卸载 (复活 #$battle)"
         rm -f "$DATA/builtin_"* 2>/dev/null
         attempt=0
-        while [ $attempt -lt 5 ]; do
+        while [ $attempt -lt "$MAX_TRY" ]; do
             attempt=$((attempt + 1))
             unload_all >/dev/null
             wait_clear 5 && break
         done
-        if [ -z "$(detected_kos)" ]; then
+        if ! _loaded_fast; then
             setstate normal
+            stats_add unload 2>/dev/null
             log "recheck" "已重新清除 (第 ${attempt} 次)"
+            # 激进模式: 复活后自适应收紧间隔 (实时读取强度, 支持 WebUI 即时切换)
+            if [ "$(ko_strength)" = "1" ]; then
+                if [ "$battle" -ge 3 ]; then
+                    INTERVAL=1
+                    log "recheck" "复活频繁, 自适应间隔收紧为 1s"
+                elif [ "$INTERVAL" -gt 2 ]; then
+                    INTERVAL=2
+                    log "recheck" "自适应间隔收紧为 2s"
+                fi
+            fi
         else
             setstate failed
             log "recheck" "重新清除失败:$(detected_kos)"
         fi
     else
+        # 未发现复活: 恢复用户设定
+        if [ "$battle" -gt 0 ]; then
+            battle=0
+            INTERVAL="$INTERVAL_USR"
+            log "recheck" "inte 已稳定, 恢复用户设定间隔 ${INTERVAL}s"
+        fi
         _cur=$(cat "$STATE" 2>/dev/null)
         case "$_cur" in
             normal | stopped | notfound | waiting) ;;
@@ -213,6 +243,6 @@ while true; do
     _hb=$((300 / INTERVAL))
     [ "$_hb" -lt 1 ] && _hb=1
     if [ $((tick % _hb)) -eq 0 ]; then
-        log "alive" "守护存活 (复核 ${tick} 次, 间隔 ${INTERVAL}s)"
+        log "alive" "守护存活 (复核 ${tick} 次, 间隔 ${INTERVAL}s, 复活累计 $(tr ',' '\n' <"$DATA/stats" 2>/dev/null | sed -n 's/^revive=//p' | head -1))"
     fi
 done

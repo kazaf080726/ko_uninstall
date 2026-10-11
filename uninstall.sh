@@ -7,13 +7,13 @@ DATA="$MODDIR/data"
 _p=$(cat "$DATA/daemon.lock" 2>/dev/null)
 case "$_p" in
     '' | *[!0-9]*) ;;
-    *) kill -9 "$_p" 2>/dev/null ;;
+    *) grep -q '\.sh' "/proc/$_p/cmdline" 2>/dev/null && kill -9 "$_p" 2>/dev/null ;;
 esac
 
 _s=$(cat "$DATA/server.pid" 2>/dev/null)
 case "$_s" in
     '' | *[!0-9]*) ;;
-    *) kill -9 "$_s" 2>/dev/null ;;
+    *) grep -q '\.sh' "/proc/$_s/cmdline" 2>/dev/null && kill -9 "$_s" 2>/dev/null ;;
 esac
 
 # 清理隐藏脚本与历史遗留标记

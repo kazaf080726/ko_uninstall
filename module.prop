@@ -1,8 +1,8 @@
 id=ko_uninstall
 name=KO卸载
-version=v1.00
-versionCode=100
+version=v1.1.0
+versionCode=110
 author=Kazaf
-description=KO卸载 · 史诗级重构版（续承 ddc_inte_killer / Fuck-inte）：开机自动卸载 inte 内核完整性检测模块，守护进程持续盯防；内置液态玻璃 WebUI 控制台、内核检测面板（MAPLE 协议）、在线升级（updateJson）与本地服务模式。兼容 Magisk / KernelSU / SukiSU / KernelSU-Next / RKSU / APatch。
+description=KO卸载 · 专治 inte.ko（一加/OPPO/真我 ColorOS 内核完整性检测）。开机自动卸载 inte 及其关联 KO 模块（oplus_integrity / oplus_kohashpro / oplus_secure_guard），守护进程盯防复活、激进自适应复核、12 维内核检测、update.json 在线升级。兼容 Magisk / KernelSU / SukiSU / KernelSU-Next / RKSU / APatch。
 updateJson=https://raw.githubusercontent.com/kazaf080726/ko_uninstall/main/update.json
 webuiIcon=webroot/icon.png

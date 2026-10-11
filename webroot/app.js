@@ -1,8 +1,9 @@
 /* ==========================================================================
- * KO卸载 · WebUI 逻辑 (液态玻璃控制台 · 中英双语)
+ * KO卸载 · WebUI 逻辑 (液态玻璃控制台 · 中英双语) v1.1.0
  * 桥接: window.ksu.exec() 只返回 stdout 最后一行 -> 单行 k=v|k=v 协议
  * 命令: webstatus.sh 轮询 / detect.sh 内核检测 / checkupdate.sh 在线升级
  *       server.sh 本地服务 / action.sh 立即清除 / open_link.sh 打开链接
+ * v1.1.0: 防护倒计时进度条 / 12维检测面板 / 强度切换 / 防护统计 / 数值动效
  * ========================================================================== */
 (function () {
   'use strict';
@@ -22,6 +23,8 @@
       init_st: '读取中', init_ms: '连接 root 执行接口…',
       mode_unload: '卸载模式', mode_monitor: '监控模式',
       hint_unload: '开机即卸载 inte，使其失效', hint_monitor: '只观察不卸载，用于诊断。切回卸载即恢复防护',
+      str_aggr: '激进 · 自适应', str_std: '标准',
+      hint_aggr: '激进: 复活频繁时自动收紧复核间隔, 最多 8 轮卸载', hint_std: '标准: 固定复核间隔, 最多 5 轮卸载',
       guard_off: '主动防护 未运行', guard_found: '主动防护 盯防中·已发现', guard_watch: '主动防护 盯防中·',
       s_normal_ok: '已生效', s_normal_ok_ms: 'inte 未加载，内核完整性检测已失效',
       s_normal_warn: '待复核', s_normal_warn_ms: 'inte 仍在加载，守护正在处理',
@@ -35,6 +38,8 @@
       v_unloaded: '未加载', v_loaded: '加载中',
       v_daemon_up: '运行中', v_daemon_down: '已停止',
       detect_run: '检测中', detect_hit: '存在', detect_clean: '未确认',
+      scan_idle: '实时扫描', scan_go: '正在扫描',
+      prot_next: '下次复核', prot_off: '防护未运行', prot_work: '处理中',
       d_title: '重新检测', up_check: '检查更新', up_checking: '检查中…',
       up_cur: '当前版本', up_hint: '点击「检查更新」从 update.json 获取最新版本',
       up_new: '发现新版本', up_ok: '已是最新版本', up_none: '无法获取更新信息',
@@ -44,17 +49,21 @@
       srv_hint_off: '本地服务: 开启后在浏览器打开 http://127.0.0.1:8080 即可管理（需 busybox）',
       t_mode_ok: '模式已切换: ', t_mode_fail: '切换失败: ',
       t_iv_ok: '复核间隔已设为 ', t_iv_ok2: ' 秒', t_iv_fail: '设置失败: ',
-      t_act: '已执行清除', t_act_fail: '执行失败: ',
+      t_str_ok: '强度已切换: ', t_str_fail: '切换失败: ',
+      t_act: '立即清除', t_act_do: '正在清除…', t_act_fail: '执行失败: ',
       t_ref: '已刷新', t_link_fail: '打开失败: ', t_link_ok: '已尝试打开',
       t_detect_ok: '检测完成', e_nobridge: '无法调用 root 执行接口', e_parse: '桥接返回内容异常', e_bridge: '桥接失败',
       log_empty: '（暂无日志）', diag_empty: '（无）', by: 'Kazaf',
-      nodes_cap: '/proc/inte_*', daemon_cap: 'daemon', run_cap: '本次运行', inte_cap: 'inte 模块'
+      nodes_cap: '/proc/inte_*', daemon_cap: 'daemon', run_cap: '本次运行', inte_cap: 'inte 模块',
+      k_unload: '累计卸载', k_revive: '复活次数'
     },
     en: {
       LIVE: 'LIVE', OFFLINE: 'OFFLINE',
       init_st: 'LOADING', init_ms: 'connecting root exec…',
       mode_unload: 'UNLOAD', mode_monitor: 'MONITOR',
       hint_unload: 'remove inte at boot ｜ monitor: observe only', hint_monitor: 'observe only, for diagnostics. Switch back to restore',
+      str_aggr: 'AGGRESSIVE', str_std: 'STANDARD',
+      hint_aggr: 'aggressive: tightens recheck interval on revives, up to 8 unload rounds', hint_std: 'standard: fixed interval, up to 5 rounds',
       guard_off: 'guard idle', guard_found: 'guard watching·found', guard_watch: 'guard watching·',
       s_normal_ok: 'ACTIVE', s_normal_ok_ms: 'inte not loaded, integrity check disabled',
       s_normal_warn: 'PENDING', s_normal_warn_ms: 'inte still loaded, daemon handling',
@@ -68,6 +77,8 @@
       v_unloaded: 'UNLOADED', v_loaded: 'LOADED',
       v_daemon_up: 'UP', v_daemon_down: 'DOWN',
       detect_run: '…', detect_hit: 'EXISTS', detect_clean: 'N/A',
+      scan_idle: 'LIVE SCAN', scan_go: 'SCANNING',
+      prot_next: 'next check', prot_off: 'guard off', prot_work: 'working',
       d_title: 're-detect', up_check: 'CHECK', up_checking: 'CHECKING…',
       up_cur: 'current', up_hint: 'check update.json for latest version',
       up_new: 'new version', up_ok: 'up to date', up_none: 'cannot fetch update info',
@@ -77,11 +88,13 @@
       srv_hint_off: 'local server: enables management from any browser at http://127.0.0.1:8080 (needs busybox)',
       t_mode_ok: 'mode -> ', t_mode_fail: 'switch failed: ',
       t_iv_ok: 'interval -> ', t_iv_ok2: 's', t_iv_fail: 'set failed: ',
-      t_act: 'executed', t_act_fail: 'exec failed: ',
+      t_str_ok: 'strength -> ', t_str_fail: 'switch failed: ',
+      t_act: 'EXECUTE', t_act_do: 'REMOVING…', t_act_fail: 'exec failed: ',
       t_ref: 'refreshed', t_link_fail: 'open failed: ', t_link_ok: 'trying to open',
       t_detect_ok: 'detected', e_nobridge: 'cannot reach root exec bridge', e_parse: 'bridge returned bad data', e_bridge: 'bridge error',
       log_empty: '(no log)', diag_empty: '(none)', by: 'Kazaf',
-      nodes_cap: '/proc/inte_*', daemon_cap: 'daemon', run_cap: 'runtime', inte_cap: 'inte module'
+      nodes_cap: '/proc/inte_*', daemon_cap: 'daemon', run_cap: 'runtime', inte_cap: 'inte module',
+      k_unload: 'unloads', k_revive: 'revives'
     }
   };
 
@@ -94,28 +107,35 @@
   var el = {
     hero: $('hero'), st: $('st'), ms: $('ms'), liveBox: $('liveBox'), led: $('led'), liveTxt: $('liveTxt'),
     chipVer: $('chipVer'), footVer: $('footVer'), ring: $('ring'), ringVal: $('ringVal'), ringCap: $('ringCap'),
-    metaGuard: $('metaGuard'), metaMode: $('metaMode'),
+    metaGuard: $('metaGuard'), metaMode: $('metaMode'), metaStr: $('metaStr'),
+    protbar: $('protbar') || { classList: { add: function(){}, remove: function(){} } },
+    protK: $('protK'), protV: $('protV'), protFill: $('protFill'),
     vInte: $('vInte'), sInte: $('sInte'), vNodes: $('vNodes'), sNodes: $('sNodes'),
     vProc: $('vProc'), sProc: $('sProc'), vRun: $('vRun'), sRun: $('sRun'),
     vModel: $('vModel'), vBrand: $('vBrand'), vKernel: $('vKernel'), vRoot: $('vRoot'),
-    vTargets: $('vTargets'), vUp: $('vUp'),
-    segMode: $('segMode'), segIv: $('segIv'), modeHint: $('modeHint'),
+    vTargets: $('vTargets'), vUp: $('vUp'), vUnload: $('vUnload'), vRevive: $('vRevive'),
+    segMode: $('segMode'), segIv: $('segIv'), segStr: $('segStr'), modeHint: $('modeHint'), strHint: $('strHint'),
     btnAct: $('btnAct'), btnRef: $('btnRef'), btnServer: $('btnServer'), srvHint: $('srvHint'),
     btnLink: $('btnLink'), btnRelease: $('btnRelease'),
-    btnDetect: $('btnDetect'), detect: $('detect'),
+    btnDetect: $('btnDetect'), detect: $('detect'), scanLine: $('scanLine'), scanFill: $('scanFill'),
     d_ko: $('d_ko'), d_systbl: $('d_systbl'), d_status: $('d_status'), d_mod: $('d_mod'), d_sysmod: $('d_sysmod'), d_ksym: $('d_ksym'),
+    d_dev: $('d_dev'), d_file: $('d_file'), d_cmd: $('d_cmd'), d_ref: $('d_ref'), d_init: $('d_init'),
     btnUp: $('btnUp'), upCur: $('upCur'), upInfo: $('upInfo'), upNote: $('upNote'), upZipWrap: $('upZipWrap'), btnUpZip: $('btnUpZip'),
     log: $('log'), langToggle: $('langToggle'),
     diag: $('diag'), diagBody: $('diagBody'), toast: $('toast')
   };
 
   var bridge = null, bridgeHow = '', busy = false, lastData = null, srvState = 0;
+  var lastIv = 5, lastRefresh = Date.now(), lastDetect = {};
+  var protAnim = null;
 
   /* ---------- Toast ---------- */
   var toastTimer = null;
-  function toast(m) {
+  function toast(m, kind) {
     if (!el.toast) return;
     el.toast.textContent = m;
+    el.toast.classList.remove('ok', 'err');
+    if (kind) el.toast.classList.add(kind);
     el.toast.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { el.toast.classList.remove('show'); }, 2200);
@@ -234,10 +254,16 @@
     return t('guard_watch') + (d.interval || '5') + 's';
   }
 
+  function bumpNode(node) {
+    if (!node) return;
+    node.classList.remove('bump');
+    void node.offsetWidth;
+    node.classList.add('bump');
+  }
+
   function render(d) {
     lastData = d;
     if (d.version) { el.chipVer.textContent = d.version; el.footVer.textContent = d.version; }
-    if (d.author) { /* 已静态 */ }
 
     var s = statusText(d);
     el.hero.classList.remove('ok', 'warn', 'err', 'info');
@@ -249,6 +275,7 @@
     el.ms.textContent = s.msg;
     el.metaMode.textContent = (d.mode === 'monitor') ? t('mode_monitor') : t('mode_unload');
     el.metaGuard.textContent = guardText(d);
+    el.metaStr.textContent = (d.strength === '1') ? t('str_aggr') : t('str_std');
 
     // 状态环
     var rc = RING_COLOR[s.ok] || RING_COLOR.info;
@@ -266,12 +293,23 @@
             d.run === '1' ? 'ok' : 'warn', t('daemon_cap'));
     setStat(el.vRun, fmtDur(d.runtime), '', t('run_cap'));
 
+    // 防护统计
+    var st = parseStats(d.stats);
+    el.vUnload.textContent = st.unload;
+    el.vRevive.textContent = st.revive;
+
     el.vModel.textContent = d.model || '--';
     el.vBrand.textContent = d.brand || '--';
     el.vKernel.textContent = d.kernel || '--';
     el.vRoot.textContent = d.root || '--';
     el.vTargets.textContent = d.targets || '-';
     el.vUp.textContent = fmtDur(d.uptime);
+
+    // 防护进度条
+    lastIv = parseInt(d.interval, 10) || 5;
+    if (lastIv < 1) lastIv = 1;
+    lastRefresh = Date.now();
+    applyProtState(s.ok, d);
 
     // 本地服务状态
     srvState = (d.server === '1') ? 1 : 0;
@@ -287,39 +325,101 @@
       el.log.textContent = t('log_empty');
     }
 
-    // 模式 / 间隔高亮
+    // 模式 / 间隔 / 强度高亮
     var mb = el.segMode.querySelectorAll('button');
     for (var i = 0; i < mb.length; i++) mb[i].classList.toggle('on', mb[i].getAttribute('data-mode') === (d.mode || 'unload'));
     el.modeHint.textContent = (d.mode === 'monitor') ? t('hint_monitor') : t('hint_unload');
     var ib = el.segIv.querySelectorAll('button');
     for (var j = 0; j < ib.length; j++) ib[j].classList.toggle('on', ib[j].getAttribute('data-iv') === (d.interval || '5'));
+    var sb = el.segStr.querySelectorAll('button');
+    for (var k = 0; k < sb.length; k++) sb[k].classList.toggle('on', sb[k].getAttribute('data-strength') === (d.strength || '1'));
+    el.strHint.textContent = (d.strength === '1') ? t('hint_aggr') : t('hint_std');
 
-    // 检测面板 (若协议带 maple 字段)
-    var m = { ko: d.m_ko, systbl: d.m_systbl, status: d.m_status, mod: d.m_mod, sysmod: d.m_sysmod, ksym: d.ksym };
-    var has = (d.m_ko !== undefined && d.m_ko !== '');
-    if (has) applyDetect(m);
+    // 检测面板 (12 维)
+    var m = { ko: d.m_ko, systbl: d.m_systbl, status: d.m_status, mod: d.m_mod, sysmod: d.m_sysmod, ksym: d.ksym,
+              dev: d.m_dev, file: d.m_file, cmd: d.m_cmd, ref: d.m_ref, init: d.m_init };
+    if (d.m_ko !== undefined && d.m_ko !== '') applyDetect(m, true);
+  }
+
+  function parseStats(s) {
+    var r = { unload: '0', revive: '0' };
+    if (!s) return r;
+    String(s).split(',').forEach(function (seg) {
+      var p = seg.indexOf('=');
+      if (p > 0) { var k = seg.slice(0, p).trim(), v = seg.slice(p + 1).trim();
+        if (k === 'unload' || k === 'revive') r[k] = v; }
+    });
+    return r;
   }
 
   function setStat(elv, txt, cls, sub) {
+    if (elv.textContent !== txt) bumpNode(elv);
     elv.textContent = txt;
     elv.className = 'stat-v' + (cls ? ' ' + cls : '');
     var sib = elv.nextElementSibling;
     if (sib) sib.textContent = sub || '';
   }
 
-  /* ---------- 检测面板渲染 ---------- */
-  function applyDetect(m) {
-    setD(el.d_ko, m.ko);
-    setD(el.d_systbl, m.systbl);
-    setD(el.d_status, m.status);
-    setD(el.d_mod, m.mod);
-    setD(el.d_sysmod, m.sysmod);
-    setD(el.d_ksym, m.ksym);
+  /* ---------- 防护倒计时进度条 ---------- */
+  function applyProtState(ok, d) {
+    el.protbar.classList.remove('ok', 'warn', 'err');
+    el.protbar.classList.add(ok);
+    var fill = el.protFill, k = el.protK, v = el.protV;
+    if (d.run !== '1') { k.textContent = t('prot_off'); v.textContent = '--'; fill.style.width = '0%'; return; }
+    if (d.inte_loaded === '1') { k.textContent = t('prot_work'); v.textContent = '…'; fill.style.width = '100%'; return; }
+    k.textContent = t('prot_next') + ' · ' + lastIv + 's';
+    var ba = RING_COLOR[ok][0] || '#34d399', bb = RING_COLOR[ok][1] || '#22d3ee';
+    fill.style.setProperty('--bar-a', ba);
+    fill.style.setProperty('--bar-b', bb);
+    fill.style.setProperty('--bar-glow', RING_COLOR[ok][2] || 'rgba(52,211,153,0.4)');
+    startProtTimer();
   }
-  function setD(node, v) {
-    if (v === '1') { node.textContent = t('detect_hit'); node.className = 'dstat hit'; }
-    else if (v === '0') { node.textContent = t('detect_clean'); node.className = 'dstat clean'; }
-    else { node.textContent = t('detect_run'); node.className = 'dstat unknown'; }
+
+  function startProtTimer() {
+    if (protAnim) return;
+    var raf = window.requestAnimationFrame || function (cb) { return setTimeout(function () { cb(); }, 250); };
+    protAnim = raf(function tick() {
+      protAnim = null;
+      var elp = (Date.now() - lastRefresh) / 1000;
+      var left = lastIv - elp;
+      if (left < 0) left = 0;
+      var pct = Math.max(0, Math.min(100, (left / lastIv) * 100));
+      el.protFill.style.width = pct.toFixed(1) + '%';
+      el.protV.textContent = (left <= 0 ? 0 : Math.ceil(left)) + 's';
+      if (lastData) protAnim = raf(tick);
+    });
+  }
+
+  /* ---------- 检测面板渲染 (12 维) ---------- */
+  function applyDetect(m, flash) {
+    setD(el.d_ko, m.ko, null, flash);
+    setD(el.d_systbl, m.systbl, null, flash);
+    setD(el.d_status, m.status, null, flash);
+    setD(el.d_mod, m.mod, null, flash);
+    setD(el.d_sysmod, m.sysmod, null, flash);
+    setD(el.d_ksym, m.ksym, null, flash);
+    var devv = (m.dev === undefined || m.dev === '') ? undefined : (m.dev === '0' ? '0' : '1');
+    setD(el.d_dev, devv, (devv === '1' ? ('×' + m.dev) : null), flash);
+    setD(el.d_file, m.file, null, flash);
+    setD(el.d_cmd, m.cmd, null, flash);
+    setD(el.d_ref, (m.ref && m.ref !== '') ? '1' : '0', (m.ref || ''), flash);
+    setD(el.d_init, (m.init && m.init !== '') ? '1' : '0', (m.init || ''), flash);
+  }
+  function setD(node, v, extra, flash) {
+    if (!node) return;
+    var txt = '', cls = 'dstat clean';
+    if (v === '1') { txt = t('detect_hit'); cls = 'dstat hit'; if (extra) txt = t('detect_hit') + ' · ' + extra; }
+    else if (v === '0') { txt = t('detect_clean'); cls = 'dstat clean'; }
+    else { txt = t('detect_run'); cls = 'dstat unknown'; }
+    if (node.textContent !== txt) {
+      node.textContent = txt;
+      node.className = cls;
+      if (flash) {
+        node.classList.remove('flash');
+        void node.offsetWidth;
+        node.classList.add('flash');
+      }
+    }
   }
 
   /* ---------- 轮询 ---------- */
@@ -352,26 +452,33 @@
     if (busy) return; busy = true;
     sh("echo " + m + " > " + MODDIR + "/data/mode")
       .then(function () { toast(t('t_mode_ok') + (m === 'monitor' ? t('mode_monitor') : t('mode_unload'))); return refresh(); })
-      .catch(function (e) { toast(t('t_mode_fail') + e.message); })
+      .catch(function (e) { toast(t('t_mode_fail') + e.message, 'err'); })
       .then(function () { busy = false; });
   }
   function setIv(iv) {
     if (busy) return; busy = true;
-    sh("echo " + iv + " > " + MODDIR + "/data/interval")
+    sh("echo " + iv + " > " + MODDIR + "/data/interval; echo " + iv + " > " + MODDIR + "/data/interval_usr")
       .then(function () { toast(t('t_iv_ok') + iv + t('t_iv_ok2')); return refresh(); })
-      .catch(function (e) { toast(t('t_iv_fail') + e.message); })
+      .catch(function (e) { toast(t('t_iv_fail') + e.message, 'err'); })
+      .then(function () { busy = false; });
+  }
+  function setStrength(st) {
+    if (busy) return; busy = true;
+    sh("echo " + st + " > " + MODDIR + "/data/strength")
+      .then(function () { toast(t('t_str_ok') + (st === '1' ? t('str_aggr') : t('str_std'))); return refresh(); })
+      .catch(function (e) { toast(t('t_str_fail') + e.message, 'err'); })
       .then(function () { busy = false; });
   }
   function manualAct() {
     if (busy) return; busy = true;
     el.btnAct.disabled = true; el.btnAct.classList.add('loading');
-    el.btnAct.innerHTML = '<span class="spin"></span>' + t('t_act');
+    el.btnAct.innerHTML = '<span class="spin"></span>' + t('t_act_do');
     sh("sh " + MODDIR + "/action.sh")
       .then(function () { toast(t('t_act')); return refresh(); })
-      .catch(function (e) { toast(t('t_act_fail') + e.message); })
+      .catch(function (e) { toast(t('t_act_fail') + e.message, 'err'); })
       .then(function () {
         busy = false; el.btnAct.disabled = false; el.btnAct.classList.remove('loading');
-        el.btnAct.textContent = t('s_running') === '处理中' ? '立即清除' : 'EXECUTE';
+        el.btnAct.textContent = t('t_act');
       });
   }
   function toggleServer() {
@@ -381,18 +488,35 @@
     el.btnServer.textContent = act === 'start' ? t('srv_starting') : t('srv_stopping');
     sh("sh " + MODDIR + "/bin/server.sh " + act)
       .then(function () { return refresh(); })
-      .catch(function (e) { toast(t('t_act_fail') + e.message); })
+      .catch(function (e) { toast(t('t_act_fail') + e.message, 'err'); })
       .then(function () { busy = false; el.btnServer.disabled = false; });
   }
   function runDetect() {
     if (!bridge) return;
     var rows = el.detect.querySelectorAll('.dstat');
     for (var i = 0; i < rows.length; i++) { rows[i].textContent = t('detect_run'); rows[i].className = 'dstat unknown'; }
+    el.scanLine.classList.add('scanning');
+    el.scanLine.querySelector('span').textContent = t('scan_go');
     sh(DETECT_CMD).then(function (out) {
       var d = parseLine(out);
-      if (d.ko !== undefined) { applyDetect(d); toast(t('t_detect_ok')); }
-      else { toast(t('e_parse')); }
-    }).catch(function (e) { toast(t('e_bridge')); el.diag.classList.remove('hide'); el.diagBody.textContent = e.message; });
+      if (d.ko !== undefined) {
+        applyDetect(d, true);
+        toast(t('t_detect_ok'));
+        var cnt = 0, tot = 0;
+        ['ko','systbl','status','mod','sysmod','ksym','dev','file','cmd','ref','init'].forEach(function (k) {
+          if (d[k] !== undefined && d[k] !== '') { tot++; if (String(d[k]) !== '0') cnt++; }
+        });
+        el.scanFill.style.width = '100%';
+        toast(t('t_detect_ok') + ' · ' + cnt + '/' + tot, 'ok');
+      } else { toast(t('e_parse'), 'err'); }
+    }).catch(function (e) {
+      toast(t('e_bridge'), 'err');
+      el.diag.classList.remove('hide'); el.diagBody.textContent = e.message;
+    }).then(function () {
+      el.scanLine.classList.remove('scanning');
+      el.scanLine.querySelector('span').textContent = t('scan_idle');
+      setTimeout(function () { el.scanFill.style.width = '0%'; }, 1200);
+    });
   }
   function checkUpdate() {
     if (busy) return; busy = true;
@@ -435,7 +559,7 @@
       if (!LINK_RE.test(u)) u = 'https://github.com';
       return openLink(u);
     }).then(function () { toast(t('t_link_ok')); })
-      .catch(function (e) { toast(t('t_link_fail') + e.message); });
+      .catch(function (e) { toast(t('t_link_fail') + e.message, 'err'); });
   }
   function openRelease() {
     sh('head -n 1 ' + MODDIR + '/data/link 2>/dev/null').then(function (r) {
@@ -444,14 +568,13 @@
       u = u.replace(/\/+$/, '') + '/releases/latest';
       return openLink(u);
     }).then(function () { toast(t('up_open')); })
-      .catch(function (e) { toast(t('t_link_fail') + e.message); });
+      .catch(function (e) { toast(t('t_link_fail') + e.message, 'err'); });
   }
   function openUpZip() {
-    // 直接打开 release 页 (若协议里带 zip, 优先打开 zip 下载)
     var zip = lastData && lastData.zip ? lastData.zip : '';
     if (LINK_RE.test(zip)) {
       openLink(zip).then(function () { toast(t('up_open')); })
-        .catch(function (e) { toast(t('t_link_fail') + e.message); });
+        .catch(function (e) { toast(t('t_link_fail') + e.message, 'err'); });
     } else {
       openRelease();
     }
@@ -481,6 +604,12 @@
     if (!b) return;
     var iv = b.getAttribute('data-iv');
     if (iv) setIv(iv);
+  });
+  el.segStr.addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (!b) return;
+    var st = b.getAttribute('data-strength');
+    if (st) setStrength(st);
   });
   el.btnAct.addEventListener('click', manualAct);
   el.btnRef.addEventListener('click', function () { refresh().then(function () { toast(t('t_ref')); }).catch(function () {}); });

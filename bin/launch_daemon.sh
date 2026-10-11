@@ -27,7 +27,9 @@ awk -v m="$MARK" 'BEGIN{f=0} $0==m{f=1;next} f{print}' "$DAEMON" > "$TMP" 2>/dev
 [ -s "$TMP" ] || { rm -f "$TMP"; exit 0; }
 chmod 700 "$TMP" 2>/dev/null
 
-KO_MODDIR="$MODDIR" nohup setsid sh "$TMP" "$@" >/dev/null 2>&1 &
+# 注意: 不用 nohup 启动 (toybox nohup 会把 SIGTERM 置为忽略, 导致守护无法被 TERM 停止)
+# setsid 已创建新会话脱离父进程, 不依赖 nohup
+KO_MODDIR="$MODDIR" setsid sh "$TMP" "$@" >/dev/null 2>&1 &
 sleep 1
 rm -f "$TMP" 2>/dev/null
 exit 0

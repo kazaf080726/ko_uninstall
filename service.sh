@@ -10,9 +10,6 @@ export PATH=/system/bin:/system/xbin:$PATH
 L="$MODDIR/bin/launch_daemon.sh"
 [ -x "$L" ] || exit 0
 
-if command -v nohup >/dev/null 2>&1; then
-    nohup "$L" service >/dev/null 2>&1 &
-else
-    ( "$L" service ) >/dev/null 2>&1 &
-fi
+# 不用 nohup: setsid 已脱离会话; nohup 会把 SIGTERM 置为忽略导致守护无法优雅停止
+( "$L" service ) >/dev/null 2>&1 &
 exit 0

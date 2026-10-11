@@ -1,8 +1,9 @@
 #!/system/bin/sh
 # ============================================================================
-# webstatus.sh — KO卸载 WebUI 单行状态协议
+# webstatus.sh — KO卸载 WebUI 单行状态协议 (v1.1.0)
 # KernelSU 3.3.0+ 的 window.ksu.exec() 只返回 stdout 最后一行
 # 所有字段用 | 分隔, 一次性输出一行
+# v1.1.0: 新增 dev/file/cmd/ref/init/strength/stats 字段
 # ============================================================================
 export PATH=/data/adb/ksu/bin:/data/adb/ap/bin:/data/adb/magisk:/system/bin:/system/xbin:/vendor/bin:$PATH
 MODDIR=$(CDPATH= cd -- "${0%/*}/.." 2>/dev/null && pwd)
@@ -41,8 +42,12 @@ if [ "$rt" -ge 0 ] && [ "$rt" -gt "$uptime" ]; then rt=-1; fi
 ver=$(sed -n 's/^version=//p' "$MODDIR/module.prop" 2>/dev/null | head -1)
 [ -z "$ver" ] && ver="-"
 
-# MAPLE 检测 (3.sh 集成)
+# MAPLE 检测 (3.sh 集成) + v1.1.0 扩展
 mko=$(maple_ko); msy=$(maple_systbl); mst=$(maple_status); mmd=$(maple_mod); msm=$(maple_sysmod)
+mdev=$(inte_dev_nodes); mcmd=$(cmdline_hit); mref=$(inte_refcnt); minit=$(inte_initstate)
+_f=$(inte_ko_file); mfile=${_f%%'|'*}
+strength=$(ko_strength)
+stats=$(ko_stats); [ -z "$stats" ] && stats="unload=0,revive=0"
 
 # 本地服务
 svc=$(cat "$DATA/server" 2>/dev/null); case "$svc" in 1) ;; *) svc=0 ;; esac
@@ -103,10 +108,12 @@ esac
 logtail=$(tail -1 "$DATA/daemon.log" 2>/dev/null)
 log3=$(tail -n 3 "$DATA/daemon.log" 2>/dev/null | tr '\n' '|' | sed 's/|$//')
 
-printf 'version=%s|state=%s|mode=%s|head=%s|msg=%s|ok=%s|inte_loaded=%s|targets=%s|nodes=%s|ksym=%s|run=%s|pid=%s|uptime=%s|runtime=%s|model=%s|brand=%s|kernel=%s|root=%s|err=%s|log=%s|log3=%s|guard=%s|interval=%s|author=%s|link=%s|server=%s|srv_pid=%s|m_ko=%s|m_systbl=%s|m_status=%s|m_mod=%s|m_sysmod=%s\n' \
+printf 'version=%s|state=%s|mode=%s|head=%s|msg=%s|ok=%s|inte_loaded=%s|targets=%s|nodes=%s|ksym=%s|run=%s|pid=%s|uptime=%s|runtime=%s|model=%s|brand=%s|kernel=%s|root=%s|err=%s|log=%s|log3=%s|guard=%s|interval=%s|author=%s|link=%s|server=%s|srv_pid=%s|m_ko=%s|m_systbl=%s|m_status=%s|m_mod=%s|m_sysmod=%s|m_dev=%s|m_file=%s|m_cmd=%s|m_ref=%s|m_init=%s|strength=%s|stats=%s' \
     "$(sv "$ver")" "$(sv "$state")" "$(sv "$mode")" "$(sv "$head")" "$(sv "$msg")" "$(sv "$ok")" \
     "$(sv "$lk")" "$(sv "$kos")" "$(sv "$nodes")" "$(sv "$ksym")" "$(sv "$run")" "$(sv "$pid")" \
     "$(sv "$uptime")" "$(sv "$rt")" "$(sv "$(dev_model)")" "$(sv "$(dev_brand)")" "$(sv "$(dev_kernel)")" \
     "$(sv "$(root_manager)")" "$(sv "$err")" "$(sv "$logtail")" "$(sv "$log3")" "$(sv "$_guard")" "$(sv "$iv")" \
-    "Kazaf" "$(sv "$link")" "$svc" "$(sv "$spp")" "$mko" "$msy" "$mst" "$mmd" "$msm"
+    "Kazaf" "$(sv "$link")" "$svc" "$(sv "$spp")" "$mko" "$msy" "$mst" "$mmd" "$msm" \
+    "$mdev" "$mfile" "$mcmd" "$mref" "$minit" "$strength" "$(sv "$stats")"
+printf '\n'
 exit 0

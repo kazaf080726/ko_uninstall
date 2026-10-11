@@ -1,5 +1,5 @@
 #!/system/bin/sh
-# action.sh — Root 管理器「执行」按钮: 立即清除一次
+# action.sh — Root 管理器「执行」按钮: 立即清除一次 (v1.1.0 强度感知)
 # KO卸载 · Kazaf
 MODDIR=${0%/*}
 DATA="$MODDIR/data"
@@ -15,7 +15,7 @@ say() {
 }
 
 say "===== KO卸载 · 手动执行清除 ====="
-say "root 管理器: $(root_manager) | rmmod: $(find_rmmod)"
+say "root 管理器: $(root_manager) | rmmod: $(find_rmmod) | 强度: $( [ "$(ko_strength)" = "1" ] && echo 激进 || echo 标准 )"
 
 targets=$(detected_kos)
 if [ -z "$targets" ]; then
@@ -34,31 +34,33 @@ fi
 say "检测到目标模块:$targets"
 
 failed=0
-for m in $targets; do
-    out=$(do_rmmod "$m")
-    say "rmmod $m => ${out:-（无输出, 成功）}"
-    case "$out" in
-        *builtin* | *"is built in"* | *"built into"*)
-            echo builtin >"$STATE"
-            say "$m 为 builtin, 无法卸载"
-            failed=1 ;;
-        protected)
-            say "$m 在保护名单中, 已跳过" ;;
-        no-rmmod)
-            say "找不到可用的 rmmod 命令"
-            failed=1 ;;
-    esac
-done
-
-i=0
-while [ $i -lt 10 ] && [ -n "$(detected_kos)" ]; do
-    sleep 1
-    i=$((i + 1))
+_max=5
+[ "$(ko_strength)" = "1" ] && _max=8
+_round=0
+while [ "$_round" -lt "$_max" ] && [ -n "$(detected_kos)" ]; do
+    _round=$((_round + 1))
+    for m in $targets; do
+        out=$(do_rmmod "$m")
+        say "rmmod $m => ${out:-（无输出, 成功）} (第 $_round 轮)"
+        case "$out" in
+            *builtin* | *"is built in"* | *"built into"*)
+                echo builtin >"$STATE"
+                say "$m 为 builtin, 无法卸载"
+                failed=1 ;;
+            protected)
+                say "$m 在保护名单中, 已跳过" ;;
+            no-rmmod)
+                say "找不到可用的 rmmod 命令"
+                failed=1 ;;
+        esac
+    done
+    [ -n "$(detected_kos)" ] && sleep 1
 done
 
 if [ -z "$(detected_kos)" ]; then
+    stats_add unload 2>/dev/null
     echo normal >"$STATE"
-    say "清除成功 / /proc 节点剩余: $(inte_nodes)/3"
+    say "清除成功 (第 $_round 轮) / /proc 节点剩余: $(inte_nodes)/3"
 else
     [ "$failed" = "0" ] && echo failed >"$STATE"
     say "失败 / 仍存在:$(detected_kos)"
