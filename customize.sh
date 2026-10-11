@@ -1,6 +1,6 @@
 #!/system/bin/sh
 # ============================================================================
-# KO卸载 · customize.sh — 安装 / 升级时初始化 (v1.1.0)
+# KO卸载 · customize.sh — 安装 / 升级时初始化 (v2.0.0)
 # 作者: Kazaf  |  开源: GitHub
 # 兼容: Magisk / KernelSU / SukiSU / KernelSU-Next / RKSU / APatch
 # ============================================================================
@@ -14,8 +14,8 @@ KO_DATA="$MODPATH/data"
 
 ui_print " "
 ui_print "******************************************"
-ui_print "   KO卸载  v1.1.0  ·  Kazaf"
-ui_print "   史诗级重构 · 液态玻璃 WebUI"
+ui_print "   KO卸载  v2.0.0  ·  Kazaf"
+ui_print "   史诗级重构 · 液态玻璃 WebUI + APP"
 ui_print "******************************************"
 ui_print " "
 ui_print "- 环境: $ARCH / API $API"
@@ -62,8 +62,26 @@ set_perm "$MODPATH/action.sh" 0 0 0755
 set_perm "$MODPATH/uninstall.sh" 0 0 0755
 set_perm "$MODPATH/data" 0 0 0755
 
+# ---- 安装管理 APP (KO卸载 v2.0 · 与 WebUI 并存) ----------------------------
+APP="$MODPATH/app/KOUninstall.apk"
+if [ -f "$APP" ]; then
+    ui_print "- 安装管理 APP …"
+    if command -v pm >/dev/null 2>&1; then
+        if pm install -r "$APP" >/dev/null 2>&1 || cmd package install -r "$APP" >/dev/null 2>&1; then
+            ui_print "  · 管理 APP 安装成功 (KO卸载)"
+        else
+            ui_print "  · 管理 APP 安装失败, 可手动安装: $APP"
+        fi
+    else
+        ui_print "  · 跳过 APP 安装 (未找到 pm)"
+    fi
+    mkdir -p "$KO_DATA/app" 2>/dev/null
+    cp -f "$APP" "$KO_DATA/app/KOUninstall.apk" 2>/dev/null
+fi
+
 ui_print " "
 ui_print "- 安装完成, 重启后生效"
 ui_print "- 打开 KernelSU/Magisk 管理器 → 模块 → KO卸载 → WebUI"
+ui_print "- 或直接打开「KO卸载」APP 管理"
 ui_print " "
 exit 0

@@ -19,4 +19,7 @@ esac
 # 清理隐藏脚本与历史遗留标记
 rm -f /dev/.sh /data/local/.sh 2>/dev/null
 rm -f /data/adb/.ddc_inte_killer_link /data/adb/.ddc_inte_killer_has_inte 2>/dev/null
+
+# 卸载管理 APP (KO卸载 v2.0)
+pm uninstall com.kazaf.kouninstall >/dev/null 2>&1
 exit 0

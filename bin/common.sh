@@ -1,9 +1,9 @@
 #!/system/bin/sh
 # ============================================================================
-# common.sh — KO卸载 公共函数库 (v1.1.0 增强版)
+# common.sh — KO卸载 公共函数库 (v2.0.0)
 # 作者: Kazaf  |  续承: 冬日渡川(ddc_inte_killer) / 无敌WX(Fuck-inte) / MapleAutumn(3.sh)
 # 适配: Magisk / KernelSU / SukiSU / KernelSU-Next / RKSU / APatch
-# v1.1.0: 检测增强(文件级/变体/节点内容/内核参数) + 强度分级 + 轻量快速检测
+# v2.0.0: 守护状态缓存支持 (WebUI+APP 双端直读) + 运行时配置即时切换
 # ============================================================================
 
 PATH="/system/bin:/system/xbin:/vendor/bin:/data/adb/ksu/bin:/data/adb/ap/bin:/data/adb/magisk:$PATH"

@@ -97,8 +97,8 @@
       <div class="drow"><span class="dk">/sys/module/inte</span><span class="dstat unknown" id="d_sysmod">检测中</span></div>
       <div class="drow"><span class="dk">kallsyms · inte</span><span class="dstat unknown" id="d_ksym">检测中</span></div>
       <div class="drow"><span class="dk">/dev · inte 节点</span><span class="dstat unknown" id="d_dev">检测中</span></div>
-      <div class="drow"><span class="dk">inte.ko 文件</span><span class="dstat unknown" id="d_file">检测中</span></div>
-      <div class="drow"><span class="dk">内核 cmdline</span><span class="dstat unknown" id="d_cmd">检测中</span></div>
+      <div class="drow"><span class="dk">inte.ko 文件驻留</span><span class="dstat unknown" id="d_file">检测中</span></div>
+      <div class="drow"><span class="dk">内核 cmdline 特征</span><span class="dstat unknown" id="d_cmd">检测中</span></div>
       <div class="drow"><span class="dk">refcnt</span><span class="dstat unknown" id="d_ref">检测中</span></div>
       <div class="drow"><span class="dk">initstate</span><span class="dstat unknown" id="d_init">检测中</span></div>
     </div>
@@ -150,7 +150,7 @@
     <div class="update-row">
       <div class="update-cur">
         <span class="up-k">当前版本</span>
-        <span class="up-v" id="upCur">v1.1.0</span>
+        <span class="up-v" id="upCur">v2.0.0</span>
       </div>
       <button class="btn primary sm2" id="btnUp">检查更新</button>
     </div>
@@ -176,6 +176,12 @@
   <section class="panel glass">
     <div class="panel-h"><span>运行日志 · 最近 3 条</span></div>
     <div class="log" id="log">（暂无日志）</div>
+  </section>
+
+  <!-- 开机自保护日志 (旧砖模式) -->
+  <section class="panel glass">
+    <div class="panel-h"><span>开机自保护 · 旧砖日志</span></div>
+    <div class="log" id="bootlog">（暂无日志）</div>
   </section>
 
   <footer class="foot">

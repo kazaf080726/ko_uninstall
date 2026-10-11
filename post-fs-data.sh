@@ -4,6 +4,17 @@
 MODDIR=${0%/*}
 [ -f "$MODDIR/disable" ] && exit 0
 
+# 开机自保护 (旧砖模式): 连续 3 次未完成开机 -> 自动禁用本模块
+G="$MODDIR/bin/boot_guard.sh"
+if [ -x "$G" ]; then
+    _bg=$("$G" check 2>/dev/null)
+    case "$_bg" in
+        disable*)
+            touch "$MODDIR/disable" 2>/dev/null
+            exit 0 ;;
+    esac
+fi
+
 L="$MODDIR/bin/launch_daemon.sh"
 [ -x "$L" ] || exit 0
 

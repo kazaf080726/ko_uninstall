@@ -3,3 +3,6 @@ _shots/
 __pycache__/
 *.pyc
 .git/
+app/_build/
+*.idsig
+

@@ -38,6 +38,7 @@
       v_unloaded: '未加载', v_loaded: '加载中',
       v_daemon_up: '运行中', v_daemon_down: '已停止',
       detect_run: '检测中', detect_hit: '存在', detect_clean: '未确认',
+      detect_resident: '驻留（正常）', detect_none: '未驻留', detect_feat: '有特征（静态）', detect_feat_none: '无特征',
       scan_idle: '实时扫描', scan_go: '正在扫描',
       prot_next: '下次复核', prot_off: '防护未运行', prot_work: '处理中',
       d_title: '重新检测', up_check: '检查更新', up_checking: '检查中…',
@@ -53,6 +54,11 @@
       t_act: '立即清除', t_act_do: '正在清除…', t_act_fail: '执行失败: ',
       t_ref: '已刷新', t_link_fail: '打开失败: ', t_link_ok: '已尝试打开',
       t_detect_ok: '检测完成', e_nobridge: '无法调用 root 执行接口', e_parse: '桥接返回内容异常', e_bridge: '桥接失败',
+      vfs_title: '', vfs_part: '', vfs_trace: '', vfs_prov: '', vfs_state: '',
+      vfs_trace_clean: '', vfs_trace_hit: '', vfs_na: '', vfs_on: '', vfs_off: '',
+      vfs_btn: '', vfs_btn_off: '',
+      vfs_hint: '',
+      t_vfs_ok: '', t_vfs_off: '', t_vfs_na: '',
       log_empty: '（暂无日志）', diag_empty: '（无）', by: 'Kazaf',
       nodes_cap: '/proc/inte_*', daemon_cap: 'daemon', run_cap: '本次运行', inte_cap: 'inte 模块',
       k_unload: '累计卸载', k_revive: '复活次数'
@@ -77,6 +83,7 @@
       v_unloaded: 'UNLOADED', v_loaded: 'LOADED',
       v_daemon_up: 'UP', v_daemon_down: 'DOWN',
       detect_run: '…', detect_hit: 'EXISTS', detect_clean: 'N/A',
+      detect_resident: 'RESIDENT (OK)', detect_none: 'ABSENT', detect_feat: 'STATIC FEATURE', detect_feat_none: 'NO FEATURE',
       scan_idle: 'LIVE SCAN', scan_go: 'SCANNING',
       prot_next: 'next check', prot_off: 'guard off', prot_work: 'working',
       d_title: 're-detect', up_check: 'CHECK', up_checking: 'CHECKING…',
@@ -92,6 +99,11 @@
       t_act: 'EXECUTE', t_act_do: 'REMOVING…', t_act_fail: 'exec failed: ',
       t_ref: 'refreshed', t_link_fail: 'open failed: ', t_link_ok: 'trying to open',
       t_detect_ok: 'detected', e_nobridge: 'cannot reach root exec bridge', e_parse: 'bridge returned bad data', e_bridge: 'bridge error',
+      vfs_title: '', vfs_part: '', vfs_trace: '', vfs_prov: '', vfs_state: '',
+      vfs_trace_clean: '', vfs_trace_hit: '', vfs_na: '', vfs_on: '', vfs_off: '',
+      vfs_btn: '', vfs_btn_off: '',
+      vfs_hint: '',
+      t_vfs_ok: '', t_vfs_off: '', t_vfs_na: '',
       log_empty: '(no log)', diag_empty: '(none)', by: 'Kazaf',
       nodes_cap: '/proc/inte_*', daemon_cap: 'daemon', run_cap: 'runtime', inte_cap: 'inte module',
       k_unload: 'unloads', k_revive: 'revives'
@@ -121,7 +133,7 @@
     d_ko: $('d_ko'), d_systbl: $('d_systbl'), d_status: $('d_status'), d_mod: $('d_mod'), d_sysmod: $('d_sysmod'), d_ksym: $('d_ksym'),
     d_dev: $('d_dev'), d_file: $('d_file'), d_cmd: $('d_cmd'), d_ref: $('d_ref'), d_init: $('d_init'),
     btnUp: $('btnUp'), upCur: $('upCur'), upInfo: $('upInfo'), upNote: $('upNote'), upZipWrap: $('upZipWrap'), btnUpZip: $('btnUpZip'),
-    log: $('log'), langToggle: $('langToggle'),
+    log: $('log'), bootlog: $('bootlog'), langToggle: $('langToggle'),
     diag: $('diag'), diagBody: $('diagBody'), toast: $('toast')
   };
 
@@ -324,6 +336,16 @@
     } else {
       el.log.textContent = t('log_empty');
     }
+    // 开机自保护日志 (旧砖模式)
+    if (el.bootlog) {
+      var bl = d.bootlog ? d.bootlog.replace(/\|/g, '\n') : t('log_empty');
+      el.bootlog.textContent = bl;
+      if (d.bootlog && d.bootlog.indexOf('DISABLE') >= 0) {
+        el.bootlog.className = 'log err';
+      } else if (d.bootlog && d.bootlog.indexOf('CLEAR') >= 0) {
+        el.bootlog.className = 'log ok';
+      }
+    }
 
     // 模式 / 间隔 / 强度高亮
     var mb = el.segMode.querySelectorAll('button');
@@ -391,6 +413,8 @@
   }
 
   /* ---------- 检测面板渲染 (12 维) ---------- */
+  // 威胁维度 (加载即威胁): ko/systbl/status/mod/sysmod/ksym/dev/ref/init
+  // 环境事实维度 (静态存在, 卸载不影响, 中性展示): file/cmd
   function applyDetect(m, flash) {
     setD(el.d_ko, m.ko, null, flash);
     setD(el.d_systbl, m.systbl, null, flash);
@@ -400,17 +424,24 @@
     setD(el.d_ksym, m.ksym, null, flash);
     var devv = (m.dev === undefined || m.dev === '') ? undefined : (m.dev === '0' ? '0' : '1');
     setD(el.d_dev, devv, (devv === '1' ? ('×' + m.dev) : null), flash);
-    setD(el.d_file, m.file, null, flash);
-    setD(el.d_cmd, m.cmd, null, flash);
+    setD(el.d_file, m.file, null, flash, 'file');
+    setD(el.d_cmd, m.cmd, null, flash, 'cmd');
     setD(el.d_ref, (m.ref && m.ref !== '') ? '1' : '0', (m.ref || ''), flash);
     setD(el.d_init, (m.init && m.init !== '') ? '1' : '0', (m.init || ''), flash);
   }
-  function setD(node, v, extra, flash) {
+  function setD(node, v, extra, flash, kind) {
     if (!node) return;
     var txt = '', cls = 'dstat clean';
-    if (v === '1') { txt = t('detect_hit'); cls = 'dstat hit'; if (extra) txt = t('detect_hit') + ' · ' + extra; }
-    else if (v === '0') { txt = t('detect_clean'); cls = 'dstat clean'; }
-    else { txt = t('detect_run'); cls = 'dstat unknown'; }
+    if (v === '1') {
+      if (kind === 'file') { txt = t('detect_resident'); cls = 'dstat clean'; }
+      else if (kind === 'cmd') { txt = t('detect_feat'); cls = 'dstat clean'; }
+      else { txt = t('detect_hit'); cls = 'dstat hit'; if (extra) txt = t('detect_hit') + ' · ' + extra; }
+    } else if (v === '0') {
+      if (kind === 'file') txt = t('detect_none');
+      else if (kind === 'cmd') txt = t('detect_feat_none');
+      else txt = t('detect_clean');
+      cls = 'dstat clean';
+    } else { txt = t('detect_run'); cls = 'dstat unknown'; }
     if (node.textContent !== txt) {
       node.textContent = txt;
       node.className = cls;
@@ -503,7 +534,8 @@
         applyDetect(d, true);
         toast(t('t_detect_ok'));
         var cnt = 0, tot = 0;
-        ['ko','systbl','status','mod','sysmod','ksym','dev','file','cmd','ref','init'].forEach(function (k) {
+        // 威胁维度计数 (file/cmd 为环境事实, 不计入"发现")
+        ['ko','systbl','status','mod','sysmod','ksym','dev','ref','init'].forEach(function (k) {
           if (d[k] !== undefined && d[k] !== '') { tot++; if (String(d[k]) !== '0') cnt++; }
         });
         el.scanFill.style.width = '100%';

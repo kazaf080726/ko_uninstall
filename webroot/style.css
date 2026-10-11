@@ -414,6 +414,10 @@ button:disabled { opacity: 0.45; pointer-events: none; }
 .kv .k { color: var(--muted); white-space: nowrap; }
 .kv .dots { flex: 1; border-bottom: 1px dotted rgba(255,255,255,0.14); transform: translateY(-3px); min-width: 16px; }
 .kv .v { color: var(--text); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
+.kv .v.ok { color: var(--ok, #34d399); }
+.kv .v.err { color: var(--err, #f87171); }
+.kv .v.warn { color: var(--warn, #fbbf24); }
+.kv .v.info { color: var(--info, #38bdf8); }
 
 /* 日志 */
 .log {

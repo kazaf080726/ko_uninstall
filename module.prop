@@ -1,8 +1,8 @@
 id=ko_uninstall
 name=KO卸载
-version=v1.1.0
-versionCode=110
+version=v3.0-beta
+versionCode=300
 author=Kazaf
-description=KO卸载 · 专治 inte.ko（一加/OPPO/真我 ColorOS 内核完整性检测）。开机自动卸载 inte 及其关联 KO 模块（oplus_integrity / oplus_kohashpro / oplus_secure_guard），守护进程盯防复活、激进自适应复核、12 维内核检测、update.json 在线升级。兼容 Magisk / KernelSU / SukiSU / KernelSU-Next / RKSU / APatch。
+description=KO卸载 · 专治 inte.ko（一加/OPPO/真我 ColorOS 内核完整性检测）。开机自动卸载 inte 及其关联 KO 模块（oplus_integrity / oplus_kohashpro / oplus_secure_guard），守护进程盯防复活、激进自适应复核、12 维内核检测、开机自保护（连续 3 次未开机自动禁用防砖）、update.json 在线升级。v3.0-beta：全新原生管理 APP 重度修复（液态玻璃 UI 直控桌面操作），移除挂载/VFS 集成（曾导致 bootloop，回归纯 rmmod 稳妥方案）。兼容 Magisk / KernelSU / SukiSU / KernelSU-Next / RKSU / APatch。
 updateJson=https://raw.githubusercontent.com/kazaf080726/ko_uninstall/main/update.json
 webuiIcon=webroot/icon.png

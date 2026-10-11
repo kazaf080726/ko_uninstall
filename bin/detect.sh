@@ -1,9 +1,9 @@
 #!/system/bin/sh
 # ============================================================================
-# detect.sh — KO卸载 内核检测面板 (v1.1.0 增强 · 融合 3.sh「MAPLE · 多于ko模块检测」)
+# detect.sh — KO卸载 内核检测面板 (v2.0.0 增强 · 融合 3.sh「MAPLE · 多于ko模块检测」)
 # 输出: 可读多行 + 最后一行单行协议 (ksu.exec 只取最后一行)
 # 协议行: ko=0|systbl=0|status=0|mod=0|sysmod=0|ksym=0|nodes=0|loaded=0|dev=0|file=0|cmd=0|ref=0|init=0
-# v1.1.0: 新增 /dev 节点 / inte.ko 文件 / cmdline / refcnt / initstate 检测
+# v2.0.0: file/cmd 语义修正 (文件驻留/静态特征, 非威胁)
 # ============================================================================
 export PATH=/system/bin:/system/xbin:/vendor/bin:/data/adb/ksu/bin:/data/adb/ap/bin:/data/adb/magisk:$PATH
 MODDIR=$(CDPATH= cd -- "${0%/*}/.." 2>/dev/null && pwd)
@@ -12,7 +12,7 @@ MODDIR=$(CDPATH= cd -- "${0%/*}/.." 2>/dev/null && pwd)
 
 echo ""
 echo "=================================================="
-echo "  KO卸载 · 内核检测 (MAPLE+ v1.1.0)"
+echo "  KO卸载 · 内核检测 (MAPLE+ v2.0.0)"
 echo "=================================================="
 
 echo ""
@@ -54,9 +54,9 @@ else
 fi
 _f=$(inte_ko_file)
 if [ "${_f%%'|'*}" = "1" ]; then
-    echo "[确认] inte.ko 文件存在: ${_f#*'|'}"
+    echo "[提示] inte.ko 文件驻留: ${_f#*'|'} (系统分区固定存在, 属正常现象, 不影响屏蔽效果)"
 else
-    echo "[未确认] 未找到 inte.ko 文件"
+    echo "[提示] 未找到 inte.ko 文件驻留"
 fi
 if [ "$(cmdline_hit)" = "1" ]; then
     echo "[确认] 内核 cmdline 含 inte/integrity 特征"
@@ -66,6 +66,14 @@ fi
 _c=$(inte_proc_content)
 if [ -n "$_c" ]; then
     echo "[确认] /proc/inte_ko 内容: $_c"
+fi
+
+echo ""
+echo "── 挂载痕迹 (v3.0) ──"
+if grep -qiE 'inte|oplus_integrity' /proc/mounts /proc/self/mountinfo 2>/dev/null; then
+    echo "[确认] 检测到 inte 相关挂载痕迹 (/proc/mounts 或 mountinfo)"
+else
+    echo "[确认] 无 inte 相关挂载痕迹 (挂载表干净, rmmod 纯卸载方案)"
 fi
 
 # 单行协议 (最后一行为 ksu.exec 返回值)

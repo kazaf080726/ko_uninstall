@@ -1,8 +1,8 @@
 {
-  "version": "v1.1.0",
-  "versionCode": 110,
+  "version": "v3.0-beta",
+  "versionCode": 300,
   "lastUpdate": "2026-10-11",
-  "changelog": "v1.1.0：检测增强至 12 维（/dev 节点 / inte.ko 文件 / cmdline / refcnt / initstate）；屏蔽增强：激进强度自适应收紧复核间隔（复活≥3 次自动 1s）、8 轮卸载上限、卸载/复活统计；启动与复核提速（轻量快速检测）；WebUI 新增防护倒计时进度条、实时扫描动效、12 维检测面板、强度切换、统计卡。修复 OTA 裸数字 versionCode 解析。",
-  "zipUrl": "https://github.com/kazaf080726/ko_uninstall/releases/download/v1.1.0/KOUninstall-v1.1.0.zip",
-  "notes": "https://github.com/kazaf080726/ko_uninstall/releases/tag/v1.1.0"
+  "changelog": "v3.0-beta 最终大版本：①重度修复管理 APP 启动黑屏（根因：程序化布局参数 0×0 导致全部控件不可见，已全面修正为 MATCH_PARENT×WRAP_CONTENT，APP 桌面直控完全可用）；②完整移除挂载/VFS 集成（此前真机测试曾导致 ColorOS 开机崩溃无限重启，回归纯 rmmod 稳妥方案，杜绝 bootloop 风险）；③新增开机自保护（旧砖模式：连续 3 次未完成开机自动禁用本模块防砖，boot.log 全程记录）；④其他全部功能保留（WebUI+APP 双端管理、12 维检测、防复活盯防、激进自适应、update.json 在线升级）。",
+  "zipUrl": "https://github.com/kazaf080726/ko_uninstall/releases/download/v3.0-beta/KOUninstall-v3.0-beta.zip",
+  "notes": "https://github.com/kazaf080726/ko_uninstall/releases/tag/v3.0-beta"
 }
