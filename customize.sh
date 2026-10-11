@@ -51,7 +51,7 @@ date +%s >"$KO_DATA/installed"        # 安装时间戳
 : >"$KO_DATA/daemon.log"              # 守护日志
 echo "unknown" >"$KO_DATA/state"      # normal/running/failed/builtin/notfound/stopped
 echo "$KO_LINK" >"$KO_DATA/link"      # 项目主页链接
-echo 0 >"$KO_DATA/server"             # 本地服务开关 0=关 1=开
+echo 1 >"$KO_DATA/server"             # 本地服务开关 0=关 1=开 (默认开, 保证 WebUI 可用)
 
 # ---- 权限 ----------------------------------------------------------------
 set_perm_recursive "$MODPATH" 0 0 0755 0644
